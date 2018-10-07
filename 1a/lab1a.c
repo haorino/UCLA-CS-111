@@ -15,6 +15,9 @@ struct termios defaultMode;
 char* readBuffer;
 char* writeBuffer;
 ssize_t writeSize;
+int shell_flag;
+int fromShell_fd[2];
+int toShell_fd[2];
 
 void restore ()
 {
@@ -45,17 +48,36 @@ int writeCorrect ()
     if (status != writeSize)
     {
         fprintf(STDERR_FILENO, "Unable to write to STDOUT %s", strerr(errno));
-        restore();
+        ;
         exit(1);
     }
 
     return status;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    //Options
+    shell_flag = 0;
+    int option = 1;
+    static struct option shell_options [] = {
+        {"shell", optional_argument, 0, 's'}
+    };
+
+    while ((option = getopt_long(argc, argv, "s", shell_options, NULL)) > -1)
+    {
+        switch (option)
+        {
+            case 's':
+                shell_flag = 1;
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [--shell=program]", argv[0]);
+                exit(1);
+        }
+    }
+
     //Get terminal paramters
-    
     tcgetattr(STDIN_FILENO, &defaultMode);
 
     //Make copy of current terminal mode
@@ -68,6 +90,16 @@ int main()
 
     //Set up new non-canonical input mode with no echo
     tcsetattr(0, TCSANOW, &projectMode); //TCSANOW opt does the action immediately
+    atexit(restore);
+
+    //Set up pipes to communicate between the shell and the new terminal
+    //Fork the program
+    //Set up polling function
+    if (shell_flag)
+    {
+        create_pipe(fromShell_fd);
+        create_pipe(toShell_fd);
+    }
 
     //Allocate memory to readBuffer
     readBuffer = (char*) malloc(sizeof(char) * BUFFERSIZE);
@@ -79,7 +111,6 @@ int main()
     if (stdio_success < 0)
     {
         fprintf(STDERR_FILENO, "Unable to open STDIO %s", strerr(errno));
-        restore();
         exit(1);
     }
 
@@ -93,7 +124,6 @@ int main()
             {
                 case 4:
                 //EOF detected
-                    restore();
                     exit(0);
                     break;
                 
@@ -111,7 +141,5 @@ int main()
             writeCorrect();
         }
     }
-
-    restore();
     exit(0);
 }
