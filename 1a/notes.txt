@@ -1,0 +1,118 @@
+CS 111 Discussion 1D
+- will be tested on lnxsrv09
+- 10% off per day, capped at 3 days
+
+
+termios:
+console -> master pty -> termios -> slave pty -> shell
+input pipe from stdio
+output pipe to stdout and stderr
+Goal: act on streams between console and shell
+Actions include: 
+line buffering/editing - holds onto chars until new line is received - when the erase char is pressed it deleted and moves a curson one 
+echo - showing the commands typed - they show because its echoing
+Newline translation - it converts the shell's new line into a carriage return line feed (CRLF)
+signal generation - if  interrupts are sent it, it should sent an interrupt to the shell
+
+termios:
+Structure:
+tcflag_t c_inflag - input modes
+'' c_oflag - output modes
+'' c_cflag - control modes
+'' c_lflag - local modes
+cc_T c_cc
+int tcgetattrs( int fd, termios, termiso)
+
+Non-canonical input mode / no echo
+- get current terminal modes
+- save them for restoration
+- make a copy with these changes: 
+c_iflag = ISTRIP;
+c_oflag = 0;
+c_lflag = 0;
+
+tcgetattr (int fd, struct termios *termios_p) -> 0/-1
+tcsetattr (int fd, int optional_actions, const struct termios *termios_p) pptional actions - TCSANOW -> returns 0/-1
+
+Workflow - (fd = 0)
+- tcgetattr(0, save)
+- make a copy
+- modify flags
+- tcsetattr (0, tCSANow, mod_copy)
+- make sure you can restore
+
+stty - change and print terminal line settings
+- stty -echo
+- stty erase z
+- stty sane ctrl-j 
+
+--shell
+- execute a new shell 
+  - stdio is a pipe from the terminal
+  - stdout, stderr are pipes to the terminal
+- read input from the keboard
+  - echo it to stdout
+  - forward it to the new shell
+
+fork 
+create a child process
+parent receives chil pID
+child receives 0
+- error parent receives -1
+
+Pipe
+int pipe(int pipefd[2]) - input fd, output fd
+lets 2 fd communicate
+pipe
+child is the writer
+fd _out into fd_onto parent onto
+
+exec - loading a new program in a calling process
+     - helps you change the process after the fork
+     - /bin/bash
+     - sh char* NULL
+     int execl (bin/bash, sh, (char*) Nul)
+
+Parent - input -> shell - close output to shell with shell pipets [1]
+       	 shell -> output (we can close input from shell pipefs[9]))
+Child - read from shell
+      - write to console
+
+poll - wait for some file event on a file descritor (For I/o)
+
+int poll (struct pollfd. nfds_y, int timoeout)
+struct pollfd
+{
+	int fd;
+	short events'
+	short revents
+}
+-
+pollin - data may be read without blocking
+pollout - daa may be written without blocking
+pollerr - revents only - error has occured on device
+pollhup - device disconnected / pipe closed / mutually exclusively with pollout
+pollnval (Revents only) invalid fd
+
+kill
+- goal send a signal to a process
+send SIGINT for 0x03 
+int kill (pid_t pid, int sig)
+
+waitpid 
+- wait for child process to change state
+pid of terminated child - if succesful -- or -1 if error
+pid_t waitpid (pid_T pidl, int* status, int options [WNUOHANG,  WUNTRACED, WCONTINUED)
+- when to use it 
+- use it to wait for shell to exit - commands to execute when shell exits
+
+Overall Workflow
+- Define options (getopt_long)? - debug option shell option
+- Get terminal parameters 
+- Replace terminal parameters but store copy of parameters in memory for exit conditions
+- Setup the pipes between input and shell, fork the program
+- exec the shell in child, differentating on the basis fo pid for parameters passed and pipe entraces/exit closed
+- setup polling function to wait for inputs before processing to prevent blocking
+- setup functions for exit handling strategies (final exit utilizes waitpid() for shell output to stop_
+- for good code, setup various output pring logs for debugging when the option is selected
+when you are writing or reading, poll the other side
