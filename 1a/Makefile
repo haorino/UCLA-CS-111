@@ -7,7 +7,7 @@
 default: lab1a.c
 	gcc std=c99 -Wall -Wextra -g -o lab1a lab1a.c
 clean:
-	rm -f lab1a *.tar* *~
+	rm -rf lab1a *.tar* *~ *.dSYM *.o *.so
 
 dist:
 	tar -czf lab1a-105032378.tar.gz lab1a.c README Makefile 
