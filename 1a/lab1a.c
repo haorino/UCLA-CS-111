@@ -4,10 +4,10 @@
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <pthread.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <poll.h>
 
 //Globals
 #define BUFFERSIZE 256
@@ -18,7 +18,13 @@ ssize_t writeSize;
 int shell_flag;
 int fromShell_fd[2];
 int toShell_fd[2];
+struct pollfd keyboard ;
+struct pollfd shell_output;
 
+int timeout;
+int process_id;
+
+//Restore - by freeing memory, closing pipes if shell_flag and resetting terminal attributes
 void restore ()
 {
     //Free memory
@@ -27,32 +33,75 @@ void restore ()
     tcsetattr(0, TCSANOW, &defaultMode);
 }
 
+
 //Error handling done alongside sys call
-int readCorrect ()
+//as well as implementing additionally functionality of writing to pipes for parent process
+int readCorrect (int fd)
 {
-    int status = read(STDIN_FILENO, readBuffer, BUFFERSIZE);
+    int status = read(fd, readBuffer, BUFFERSIZE);
     if (status < 0)
     {
         fprintf(STDERR_FILENO, "Unable to read from STDIO %s", strerr(errno));
-        restore(readBuffer, &defaultMode);
         exit(1);
     }
 
     return status;
 }
 
-//Error handling done alongside sys call
-int writeCorrect ()
+//Error handling done alongside sys call, as well as implementing
+int writeCorrect (int fd)
 {
-    int status = write(STDOUT_FILENO, writeBuffer, writeSize);
+    int status = write(fd, writeBuffer, writeSize);
     if (status != writeSize)
     {
-        fprintf(STDERR_FILENO, "Unable to write to STDOUT %s", strerr(errno));
-        ;
+        fprintf(STDERR_FILENO, "Unable to write to STDOUT %s", strerr(errno)); 
         exit(1);
     }
 
     return status;
+}
+
+void readWrite()
+{
+    //Allocate memory to readBuffer
+    readBuffer = (char*) malloc(sizeof(char) * BUFFERSIZE);
+
+    //Infinite loop to keep reading and writing
+    while (1)
+    {
+        int numBytes = readCorrect();
+        int displacement;
+
+        for (displacement = 0; displacement < numBytes; displacement++)
+        {
+            switch (*(readBuffer + displacement))
+            {
+                case 4:
+                //EOF detected
+                    exit(0);
+                    break;
+                
+                case '\r':
+                case '\n':
+                    writeBuffer = "\r\n";
+                    writeSize = 2;
+                    break;
+
+                default:
+                    writeBuffer = readBuffer + displacement;
+                    writeSize = 1;
+                    break; 
+            }
+
+            //echos output to stdout, or writes it to pipe
+            writeCorrect(STDOUT_FILENO);
+
+            //forwards output to shell
+            if (shell_flag && process_id)
+                writeCorrect(toShell_fd[1]);
+        }
+    }
+    return;
 }
 
 int main(int argc, char* argv[])
@@ -89,8 +138,12 @@ int main(int argc, char* argv[])
     projectMode.c_lflag = 0;
 
     //Set up new non-canonical input mode with no echo
-    tcsetattr(0, TCSANOW, &projectMode); //TCSANOW opt does the action immediately
-    atexit(restore);
+    //TCSANOW opt does the action immediately
+    if (tcsetattr(0, TCSANOW, &projectMode) < 0)
+    {
+        fprintf(stderr, "Unable to set non-canonical input mode with no echo: %s", strerr(errno));
+        exit(1);   
+    }
 
     //Set up pipes to communicate between the shell and the new terminal
     //Fork the program
@@ -99,47 +152,32 @@ int main(int argc, char* argv[])
     {
         create_pipe(fromShell_fd);
         create_pipe(toShell_fd);
-    }
 
-    //Allocate memory to readBuffer
-    readBuffer = (char*) malloc(sizeof(char) * BUFFERSIZE);
-
-    //Open stdinput for reading
-    int stdio_success = open(STDIN_FILENO, O_RDONLY);
-    
-    //If unable to input stdio, exit with error
-    if (stdio_success < 0)
-    {
-        fprintf(STDERR_FILENO, "Unable to open STDIO %s", strerr(errno));
-        exit(1);
-    }
-
-    while (1)
-    {
-        int numBytes = readCorrect();
-        int displacement;
-        for (displacement = 0; displacement < numBytes; displacement++)
+        process_id = fork();
+        switch (process_id)
         {
-            switch (*(readBuffer + displacement))
-            {
-                case 4:
-                //EOF detected
-                    exit(0);
-                    break;
-                
-                case '\r':
-                case '\n':
-                    writeBuffer = "\r\n";
-                    writeSize = 2;
-                    break;
-
-                default:
-                    writeBuffer = readBuffer + displacement;
-                    writeSize = 1;
-                    break; 
-            }
-            writeCorrect();
+            case -1:
+                fprintf(stderr, "Unable to set non-canonical input mode with no echo: %s", strerr(errno));
+                exit(1);
+                break;
+            case 0:
+            //Child process
+            //Duplicate necessary fds to redirect stdin, stdout, stderr to and from pipes
+            //Close terminal end of pipes
+                close(fromShell_fd[0]);
+                close(toShell_fd[1]);
+                dup2(toShell_fd[0],   STDIN_FILENO);
+                dup2(fromShell_fd[1], STDOUT_FILENO);
+                dup2(fromShell_fd[1], STDERR_FILENO);
+                execlp("/bin/bash", NULL);
+                break;
+            default:
+            //Parent Process
+            //Setup polling
+                break;
         }
     }
+
+    readWrite();
     exit(0);
 }
