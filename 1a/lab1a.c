@@ -1,3 +1,4 @@
+#include <string.h>
 #include <termios.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -9,16 +10,23 @@
 #include <errno.h>
 #include <poll.h>
 
-/* --- Global Variables --- */
+/* --- Globals  --- */
+// Constants
 #define BUFFERSIZE 256
+#define WRITE_END 1
+#define READ_END 0
+#define KEYBOARD 0
+#define SHELL 1
+
+// Variables
 struct termios defaultMode;
 char* readBuffer;
 char* writeBuffer;
 int shell_flag;
-int fromShell_fd[2];
-int toShell_fd[2];
-//poll_fds[0] --> keyboard | poll_fds[1] --> output from shell
-struct pollfd poll_fds[2]; 
+int debug_flag;
+int pipeFromShell[2];
+int pipeToShell[2];
+struct pollfd pollArray[2]; 
 int processID;
 
 /* --- System calls with error handling --- */
@@ -27,7 +35,7 @@ int safeRead (int fd, char* buffer)
     int status = read(fd, buffer, BUFFERSIZE);
     if (status < 0)
     {
-        fprintf(STDERR_FILENO, "Unable to read from STDIO %s", strerr(errno));
+        fprintf(stderr, "Unable to read from STDIO %s", strerror(errno));
         exit(1);
     }
 
@@ -39,25 +47,28 @@ int safeWrite (int fd, char* buffer, ssize_t size)
     int status = write(fd, buffer, size);
     if (status != size)
     {
-        fprintf(STDERR_FILENO, "Unable to write to STDOUT %s", strerr(errno)); 
+        fprintf(stderr, "Unable to write to STDOUT %s", strerror(errno)); 
         exit(1);
     }
+
+    if (debug_flag && fd == pipeToShell[WRITE_END])
+      printf("Forwarding to shell: %s \n", buffer);
 
     return status;
 }
 
 /* --- Utility Functions --- */
-//Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
+// Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore ()
 {
     //Free memory
     free(readBuffer);
-
+    
     //Reset the modes
     tcsetattr(0, TCSANOW, &defaultMode);
 }
 
-//Writes numBytes worth of data from a given buffer: ^D exits, CR or LF -> CRLF
+// Writes numBytes worth of data from a given buffer: ^D exits, CR or LF -> CRLF
 void writeBytes(int numBytes, int writeFD, char* buffer)
 {
     int displacement;
@@ -65,7 +76,6 @@ void writeBytes(int numBytes, int writeFD, char* buffer)
     for (displacement = 0; displacement < numBytes; displacement++)
     {
 
-        int writeSize;
         switch (*(buffer + displacement))
         {
             case 4:
@@ -75,37 +85,36 @@ void writeBytes(int numBytes, int writeFD, char* buffer)
                     
             case '\r':
             case '\n':
-                buffer = "\r\n";
-                writeSize = 2;
+		if (writeFD == pipeToShell[WRITE_END])
+                  safeWrite(writeFD, "\n", 1);
+		else
+		  safeWrite(writeFD, "\r\n", 2);
                 break;
 
             default:
-                writeBuffer = readBuffer + displacement;
-                writeSize = 1;
+	        safeWrite(writeFD, readBuffer + displacement, 1);
                 break; 
         }
 
-        //Echos output to stdout or writes to pipe
-        safeWrite(writeFD, buffer, writeSize);
-        //Forwards output to shell
-        if (shell_flag && processID)
-            writeCorrect(toShell_fd[1]);
+
+
+
     }
 }
 
-//Polls fromShell and toShell 's read ends for input and interrupts
+// Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
 void readOrPoll()
 {
     //Infinite loop to keep reading and/or polling
     while (1)
     {
-        int pendingReads = poll(poll_fds, 2, 0);
+        int pendingReads = poll(pollArray, 2, 0);
         int numBytes = 0;
         
         //Polling sys call failure
         if (pendingReads < 0)
         {
-            fprintf(stderr, "Polling error: ", strerr(errno));
+            fprintf(stderr, "Polling error: %s", strerror(errno));
             exit(1);
         }
 
@@ -117,20 +126,23 @@ void readOrPoll()
                 continue;
 
             //.revents --> returns bits of events that occured, hence using bit manipulation...
-            if (poll_fds[0].revents & POLLIN)
+	    //Keyboard has data to be read
+            if (pollArray[KEYBOARD].revents & POLLIN)
             {
                 //Data has been sent in from keyboard, need to read it
                 numBytes = safeRead(STDIN_FILENO, readBuffer);
                 writeBytes(numBytes, STDOUT_FILENO, readBuffer);
+		writeBytes(numBytes, pipeToShell[WRITE_END], readBuffer);
             }  
-
-            if (poll_fds[1].revents & POLLIN)
+	    
+	    //Shell has output that must be read
+            if (pollArray[SHELL].revents & POLLIN)
             {
-                numBytes = safeRead(fromShell_fd[1], readBuffer);
+                numBytes = safeRead(pipeFromShell[READ_END], readBuffer);
                 writeBytes(numBytes, STDOUT_FILENO, readBuffer);
             }
 
-            if (poll_fds[1].revents & (POLLHUP | POLLERR))
+            if (pollArray[SHELL].revents & (POLLHUP | POLLERR))
             {
                 fprintf(stderr, "Shell terminated.");
                 exit(1);
@@ -146,9 +158,12 @@ int main(int argc, char* argv[])
 {
     //Options
     shell_flag = 0;
+    debug_flag = 0;
     int option = 1;
+
     static struct option shell_options [] = {
-        {"shell", optional_argument, 0, 's'}
+      {"shell", optional_argument, 0, 's'},
+      {"debug", no_argument, 0, 'd'}
     };
 
     while ((option = getopt_long(argc, argv, "s", shell_options, NULL)) > -1)
@@ -158,6 +173,9 @@ int main(int argc, char* argv[])
             case 's':
                 shell_flag = 1;
                 break;
+	    case 'd':
+	      debug_flag = 1;
+	      break;	  
             default:
                 fprintf(stderr, "Usage: %s [--shell=program]", argv[0]);
                 exit(1);
@@ -179,9 +197,11 @@ int main(int argc, char* argv[])
     //TCSANOW opt does the action immediately
     if (tcsetattr(0, TCSANOW, &projectMode) < 0)
     {
-        fprintf(stderr, "Unable to set non-canonical input mode with no echo: %s", strerr(errno));
+        fprintf(stderr, "Unable to set non-canonical input mode with no echo: %s", strerror(errno));
         exit(1);   
     }
+
+    atexit(restore);
 
     //Allocate memory to readBuffer
     readBuffer = (char*) malloc(sizeof(char) * BUFFERSIZE);
@@ -190,44 +210,56 @@ int main(int argc, char* argv[])
     if (shell_flag)
     {
         //Set up pipes to communicate between the shell and the new terminal
-        create_pipe(fromShell_fd);
-        create_pipe(toShell_fd);
+        pipe(pipeFromShell);
+        pipe(pipeToShell);
 
         //Fork the program
         processID = fork();
         switch (processID)
         {
             case -1:
-                fprintf(stderr, "Unable to fork successfully: %s", strerr(errno));
+                fprintf(stderr, "Unable to fork successfully: %s", strerror(errno));
                 exit(1);
                 break;
             case 0:
             //Child process
-            //Duplicate necessary poll_fds to redirect stdin, stdout, stderr to and from pipes
+            //Duplicate necessary pollArray to redirect stdin, stdout, stderr to and from pipes
             //Close terminal end of pipes
-                close(fromShell_fd[0]);
-                close(toShell_fd[1]);
-                dup2(toShell_fd[0],   STDIN_FILENO);
-                dup2(fromShell_fd[1], STDOUT_FILENO);
-                dup2(fromShell_fd[1], STDERR_FILENO);
-                execlp("/bin/bash", "sh", NULL);
+	      close(pipeToShell[WRITE_END]);
+	      close(pipeFromShell[READ_END]);
+                dup2(pipeToShell[READ_END],   STDIN_FILENO);
+                dup2(pipeFromShell[WRITE_END], STDOUT_FILENO);
+                dup2(pipeFromShell[WRITE_END], STDERR_FILENO);
+		close(pipeToShell[READ_END]);
+		close(pipeFromShell[WRITE_END]);
+		if (execvp("/bin/bash", NULL))
+		  {
+		    printf("shell started successfully");
+		  }
+		if (debug_flag)
+		  printf("Child process started, shell started\n");
+
                 break;
             default:
             //Parent Process
+	    //Close shell end of pipes
+	      close(pipeToShell[READ_END]);
+	      close(pipeFromShell[WRITE_END]);
             //Setup polling
                 //Keyboard
-                poll_fds[0].fd = STDIN_FILENO;
-                poll_fds[0].events = POLLIN;
+                pollArray[KEYBOARD].fd = STDIN_FILENO;
+                pollArray[KEYBOARD].events = POLLIN;
 
                 //Output from shell
-                poll_fds[1].fd = fromShell_fd[0];
-                poll_fds[1].events = POLL_IN | POLL_HUP | POLL_ERR;
+                pollArray[SHELL].fd = pipeFromShell[READ_END];
+                pollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
+		if (debug_flag)
+		  printf("Parent process started, polling setup, pipes closed\n");
+		readOrPoll();
                 break;
         }
-
-        readOrPoll();
     }
-
+    
     else
     {
         while(1)
