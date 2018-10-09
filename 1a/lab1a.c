@@ -120,19 +120,25 @@ void writeBytes(int numBytes, int writeFD, char* buffer)
 
             case 3:
                 if (shell_flag)
-                    kill (processID, SIGINT);
+		{
+		   if (kill (processID, SIGINT) < 0)
+		   {
+		       fprintf(stderr, "Kill failed: %s", strerror(errno));
+		       exit(1);
+		   }
+		 }
                 break;
 
             case '\r':
             case '\n':
                 if (writeFD == pipeToShell[WRITE_END])
-                        safeWrite(writeFD, "\n", 1);
+		  safeWrite(writeFD, "\n", 1);
                 else
-                safeWrite(writeFD, "\r\n", 2);
-                        break;
+		  safeWrite(writeFD, "\r\n", 2);
+                  break;
 
             default:
-	            safeWrite(writeFD, readBuffer + displacement, 1);
+	        safeWrite(writeFD, readBuffer + displacement, 1);
                 break; 
         }
     }
@@ -257,14 +263,23 @@ int main(int argc, char* argv[])
     if (shell_flag)
     {
         //Set up pipes to communicate between the shell and the new terminal
-        pipe(pipeFromShell);
-        pipe(pipeToShell);
+        if (pipe(pipeFromShell) < 0 || pipe(pipeToShell) < 0)
+	{
+	  fprintf(stderr, "Pipe failed: %s,", strerror(errno));
+	  exit(1);
+	}
 
         //Register signal handler for SIGPIPE
-        signal(SIGPIPE, signal_handler);
+        if (signal(SIGPIPE, signal_handler) == SIG_ERR)
+	{
+	  fprintf(stderr, "Signal registering failed: %s", strerror(errno));
+	  exit(1);
+	}
+
 
         //Fork the program
-        processID = fork();
+	processID = fork();
+
         switch (processID)
         {
             case -1:
@@ -283,10 +298,12 @@ int main(int argc, char* argv[])
                 safeDup2(pipeFromShell[WRITE_END], STDERR_FILENO);
                 safeClose(pipeToShell[READ_END]);
                 safeClose(pipeFromShell[WRITE_END]);
+		
+		char *const execOptions[1] = {NULL};
 
                 if (customShell)
                 {
-                    if (!execvp(customShell, NULL))
+		  if (execvp(customShell, execOptions) < 0)
                     {
                         fprintf(stderr, "Unable to start shell: %s", strerror(errno));
                         exit(1);
@@ -294,7 +311,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    if (!execvp("/bin/bash", NULL))
+                    if (execvp("/bin/bash", execOptions) < 0)
                     {
                         fprintf(stderr, "Unable to start shell: %s", strerror(errno));
                         exit(1);

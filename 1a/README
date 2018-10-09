@@ -2,9 +2,34 @@ NAME: Siddharth Joshi
 EMAIL: sjoshi804@gmail.com
 ID: 105032378
 
-lab1a.c
+lab1a.c:
+The source code for the lab.
+Supports --shell option -> instantiates a shell ("/bin/bash") or a custom shell if specified with the program argument 
+Supports --debug option -> prints various helpful debug statements throughout execution
+Default execution, puts terminal into non-cannonical non echo mode and echos the user's keystrokes to the screen
+Miscellaneous info on lab1a.c
+^D - exits (for shell option, send EOF - thus resulting in an eventual exit - after the child process stops as well)
+^C - for shell option only - sends interrupt signal to shell - causing an eventual shutdown
+Contains 'protected system calls' - functions that make system calls with error checking, making the coding process easier
+If shell option specified:
+Uses fork() - to start a new child process that executes the shell and communicates to the parent
+managing the terminal via pipes
+Prevents blocking by using poll() and poll_fds structures.
+Returns the shell exit status - using waitpid()
+Errors are descriptive as strerror(errno) is used to elaborate on the error message (indicated by exit code (1))
+atexit was used to specify a standard routine whenever exit() is called, instead of manually issuing multiple function calls
 
-Makefile
+Makefile:
+default -> builds the prokect
+clean -> deletes all object files, shared objects, dSYM folder and any other possible residue from working in the directory
+dist -> builds the tar ball with the z option for .tar.gz extension
 
-README
- A brief description of the files included in this project.
+README:
+A brief description of the files included in this project.
+
+Sources:
+https://linux.die.net/man/3/execvp
+https://linux.die.net/man/3/poll
+https://linux.die.net/man/3/pipe
+https://linux.die.net/man/3/kill
+https://www.youtube.com/watch?v=PwxTbksJ2fo
