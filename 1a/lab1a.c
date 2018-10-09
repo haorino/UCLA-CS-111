@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 #include <poll.h>
 
 /* --- Globals  --- */
@@ -22,6 +23,7 @@
 struct termios defaultMode;
 char* readBuffer;
 char* writeBuffer;
+char* customShell;
 int shell_flag;
 int debug_flag;
 int pipeFromShell[2];
@@ -57,6 +59,24 @@ int safeWrite (int fd, char* buffer, ssize_t size)
     return status;
 }
 
+void safeDup2(int original_fd, int new_fd)
+{
+    if (dup2(original_fd, new_fd) < 0)
+    {
+        fprintf(stderr, "Dup2 failed: %s", strerror(errno));
+        exit(1);
+    }
+}
+
+void safeClose(int fd)
+{
+    if (close(fd) < 0)
+    {
+        fprintf(stderr, "Error closing file: %s", strerror(errno));
+        exit(1);
+    }
+}
+
 /* --- Utility Functions --- */
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore ()
@@ -66,6 +86,18 @@ void restore ()
     
     //Reset the modes
     tcsetattr(0, TCSANOW, &defaultMode);
+
+    //If shell option selected, wait for shell to close and capture the exit code
+    if (shell_flag)
+    {
+        int status;
+        if (waitpid(processID, &status, 0) == -1)
+        {
+            fprintf(stderr, "waitpid failed: %s", strerror(errno));
+        }
+        fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d\n", WTERMSIG(status), WEXITSTATUS(status));
+
+    }
 }
 
 // Writes numBytes worth of data from a given buffer: ^D exits, CR or LF -> CRLF
@@ -80,25 +112,29 @@ void writeBytes(int numBytes, int writeFD, char* buffer)
         {
             case 4:
                 //EOF detected
-                exit(0);
+                if (shell_flag)
+                    close(pipeToShell[1]);
+                else
+                    exit(0);
                 break;
-                    
+
+            case 3:
+                if (shell_flag)
+                    kill (processID, SIGINT);
+                break;
+
             case '\r':
             case '\n':
-		if (writeFD == pipeToShell[WRITE_END])
-                  safeWrite(writeFD, "\n", 1);
-		else
-		  safeWrite(writeFD, "\r\n", 2);
-                break;
+                if (writeFD == pipeToShell[WRITE_END])
+                        safeWrite(writeFD, "\n", 1);
+                else
+                safeWrite(writeFD, "\r\n", 2);
+                        break;
 
             default:
-	        safeWrite(writeFD, readBuffer + displacement, 1);
+	            safeWrite(writeFD, readBuffer + displacement, 1);
                 break; 
         }
-
-
-
-
     }
 }
 
@@ -144,12 +180,22 @@ void readOrPoll()
 
             if (pollArray[SHELL].revents & (POLLHUP | POLLERR))
             {
-                fprintf(stderr, "Shell terminated.");
+                if (debug_flag)
+                    fprintf(stderr, "Shell terminated.\n");
                 exit(1);
             }
         }
     }
     return;
+}
+
+/* --- Signal Handler --- */
+void signal_handler(int sig)
+{
+    if (sig == SIGPIPE)
+    {
+        exit(0);
+    }
 }
 
 /* --- Main Function --- */
@@ -172,12 +218,13 @@ int main(int argc, char* argv[])
         {
             case 's':
                 shell_flag = 1;
+                customShell = optarg;
                 break;
 	    case 'd':
 	      debug_flag = 1;
 	      break;	  
             default:
-                fprintf(stderr, "Usage: %s [--shell=program]", argv[0]);
+                fprintf(stderr, "Usage: %s [--shell]", argv[0]);
                 exit(1);
         }
     }
@@ -213,6 +260,9 @@ int main(int argc, char* argv[])
         pipe(pipeFromShell);
         pipe(pipeToShell);
 
+        //Register signal handler for SIGPIPE
+        signal(SIGPIPE, signal_handler);
+
         //Fork the program
         processID = fork();
         switch (processID)
@@ -221,31 +271,46 @@ int main(int argc, char* argv[])
                 fprintf(stderr, "Unable to fork successfully: %s", strerror(errno));
                 exit(1);
                 break;
+                
             case 0:
             //Child process
             //Duplicate necessary pollArray to redirect stdin, stdout, stderr to and from pipes
             //Close terminal end of pipes
-	      close(pipeToShell[WRITE_END]);
-	      close(pipeFromShell[READ_END]);
-                dup2(pipeToShell[READ_END],   STDIN_FILENO);
-                dup2(pipeFromShell[WRITE_END], STDOUT_FILENO);
-                dup2(pipeFromShell[WRITE_END], STDERR_FILENO);
-		close(pipeToShell[READ_END]);
-		close(pipeFromShell[WRITE_END]);
-		if (execvp("/bin/bash", NULL))
-		  {
-		    printf("shell started successfully");
-		  }
-		if (debug_flag)
-		  printf("Child process started, shell started\n");
+                safeClose(pipeToShell[WRITE_END]);
+                safeClose(pipeFromShell[READ_END]);
+                safeDup2(pipeToShell[READ_END],   STDIN_FILENO);
+                safeDup2(pipeFromShell[WRITE_END], STDOUT_FILENO);
+                safeDup2(pipeFromShell[WRITE_END], STDERR_FILENO);
+                safeClose(pipeToShell[READ_END]);
+                safeClose(pipeFromShell[WRITE_END]);
 
+                if (customShell)
+                {
+                    if (!execvp(customShell, NULL))
+                    {
+                        fprintf(stderr, "Unable to start shell: %s", strerror(errno));
+                        exit(1);
+                    }
+                }
+                else
+                {
+                    if (!execvp("/bin/bash", NULL))
+                    {
+                        fprintf(stderr, "Unable to start shell: %s", strerror(errno));
+                        exit(1);
+                    }
+                }
+                
+                if (debug_flag)
+                    printf("Child process started, shell started\n");
                 break;
+
             default:
-            //Parent Process
-	    //Close shell end of pipes
-	      close(pipeToShell[READ_END]);
-	      close(pipeFromShell[WRITE_END]);
-            //Setup polling
+                //Parent Process
+                //Close shell end of pipes
+                safeClose(pipeToShell[READ_END]);
+                safeClose(pipeFromShell[WRITE_END]);
+                //Setup polling
                 //Keyboard
                 pollArray[KEYBOARD].fd = STDIN_FILENO;
                 pollArray[KEYBOARD].events = POLLIN;
@@ -253,9 +318,11 @@ int main(int argc, char* argv[])
                 //Output from shell
                 pollArray[SHELL].fd = pipeFromShell[READ_END];
                 pollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
-		if (debug_flag)
-		  printf("Parent process started, polling setup, pipes closed\n");
-		readOrPoll();
+
+                if (debug_flag)
+                    printf("Parent process started, polling setup, pipes closed\n");
+
+                readOrPoll();
                 break;
         }
     }
