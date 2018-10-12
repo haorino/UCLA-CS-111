@@ -62,7 +62,7 @@ void writeBytes(int numBytes, int writeFD, char *buffer)
 
         case '\r':
         case '\n':
-           /* if (writeFD == pipeToShell[WRITE_END])
+            /* if (writeFD == pipeToShell[WRITE_END])
                 safeWrite(writeFD, "\n", 1);
             else
                 safeWrite(writeFD, "\r\n", 2);
@@ -76,7 +76,7 @@ void writeBytes(int numBytes, int writeFD, char *buffer)
 }
 
 // Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
-void readOrPoll(struct pollfd* pollArray, char* readBuffer)
+void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 {
     //Infinite loop to keep reading and/or polling
     while (1)
@@ -105,7 +105,7 @@ void readOrPoll(struct pollfd* pollArray, char* readBuffer)
                 //Data has been sent in from keyboard, need to read it
                 numBytes = safeRead(STDIN_FILENO, readBuffer, BUFFERSIZE);
                 writeBytes(numBytes, STDOUT_FILENO, readBuffer);
-              //  writeBytes(numBytes, pipeToShell[WRITE_END], readBuffer);
+                //  writeBytes(numBytes, pipeToShell[WRITE_END], readBuffer);
             }
 
             //Shell has output that must be read

@@ -1,6 +1,6 @@
 /* --- Globals  --- */
 // Constants
-#ifndef CONSTANTS 
+#ifndef CONSTANTS
 #define CONSTANTS
 
 #define BUFFERSIZE 256

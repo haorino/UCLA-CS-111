@@ -52,10 +52,9 @@ int main(int argc, char *argv[])
     int option = 1;
 
     static struct option shell_options[] = {
-        {"port", required_argument, 0, 'p'}, 
+        {"port", required_argument, 0, 'p'},
         {"encrypt", required_argument, 0, 'e'},
-        {"debug", no_argument, 0, 'd'}
-        };
+        {"debug", no_argument, 0, 'd'}};
 
     while ((option = getopt_long(argc, argv, "p:e:d", shell_options, NULL)) > -1)
     {
@@ -117,13 +116,11 @@ int main(int argc, char *argv[])
 
         char *const execOptions[1] = {NULL};
 
- 
-            if (execvp("/bin/bash", execOptions) < 0)
-            {
-                fprintf(stderr, "Unable to start shell: %s", strerror(errno));
-                exit(1);
-            }
-        
+        if (execvp("/bin/bash", execOptions) < 0)
+        {
+            fprintf(stderr, "Unable to start shell: %s", strerror(errno));
+            exit(1);
+        }
 
         if (debugFlag)
             printf("Child process started, shell started\n");
