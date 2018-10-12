@@ -3,7 +3,7 @@
 #include "safeSysCalls.h"
 
 /* --- System calls with error handling --- */
-int safeRead (int fd, char* buffer, ssize_t size)
+int safeRead(int fd, char *buffer, ssize_t size)
 {
     int status = read(fd, buffer, size);
     if (status < 0)
@@ -15,12 +15,12 @@ int safeRead (int fd, char* buffer, ssize_t size)
     return status;
 }
 
-int safeWrite (int fd, char* buffer, ssize_t size)
+int safeWrite(int fd, char *buffer, ssize_t size)
 {
     int status = write(fd, buffer, size);
     if (status != size)
     {
-        fprintf(stderr, "Unable to write to STDOUT %s", strerror(errno)); 
+        fprintf(stderr, "Unable to write to STDOUT %s", strerror(errno));
         exit(1);
     }
 
@@ -41,6 +41,15 @@ void safeClose(int fd)
     if (close(fd) < 0)
     {
         fprintf(stderr, "Error closing file: %s", strerror(errno));
+        exit(1);
+    }
+}
+
+void safeKill(processID, SIGINT)
+{
+    if (kill(processID, SIGINT) < 0)
+    {
+        fprintf(stderr, "Kill failed: %s", strerror(errno));
         exit(1);
     }
 }

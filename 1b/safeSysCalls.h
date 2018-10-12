@@ -13,4 +13,6 @@ void safeDup2(int original_fd, int new_fd);
 
 void safeClose(int fd);
 
+void safeKill(int processID, int SIGNUM);
+
 #endif
