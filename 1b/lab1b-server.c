@@ -9,29 +9,35 @@
 #include <poll.h>
 #include <stdio.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 //Custom libraries and header files
-#include "safeSysCalls.h"
+#include "SafeSysCalls.h"
 #include "Constants.h"
 
-// Variables
-struct termios defaultMode;
+// Global Variables
 char *readBuffer;
-char *writeBuffer;
-int portFlag;
-int encryptFlag;
-int debugFlag;
+int portFlag, encryptFlag, debugFlag;
 int portNum;
-struct pollfd pollArray[2];
-int pipeToShell[2];
-int pipeFromShell[2];
-
+int pipeToShell[2], pipeFromShell[2];
+int initSocketfd, connectedSocketfd;
+unsigned int clientAddressLength;
 int processID;
 
+//struct termios *defaultMode;
+struct pollfd pollArray[2];
+struct sockaddr_in serverAddress, cllientAddress;
+//object containing internet address
+
 /* --- Utility Functions --- */
-// Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
+// Restores to pre-execution environment: frees memory, closes pipes etc.
 void restore()
 {
+    //Close Pipes
+
+    //Free Memory
 }
 
 /* --- Signal Handler --- */
@@ -62,9 +68,12 @@ int main(int argc, char *argv[])
         {
         case 'p':
             portFlag = 1;
-            portNum = optarg;
+            portNum = atoi(optarg);
             break;
         case 'e':
+            encryptFlag = 1;
+            break;
+        case 'd':
             debugFlag = 1;
             break;
         default:
@@ -77,6 +86,50 @@ int main(int argc, char *argv[])
 
     //Allocate memory to readBuffer
     readBuffer = (char *)malloc(sizeof(char) * BUFFERSIZE);
+
+    //Set Up Socket to communicate with client process
+    initSocketfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (initSocketfd < 0)
+    {
+        fprintf(stderr, "Socket creation failed: %s", strerror(errno));
+        exit(1);
+    }
+
+    bzero((char *) &serverAddress, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    serverAddress.sin_port = htons(portNum);
+
+    if (bind(initSocketfd, (struct sockaddr *) &serverAddress, sizeof(serverAddress))  < 0)
+    {
+        fprintf(stderr, "Socket binding error: %s", strerror(errno));
+        exit(1);
+    }
+
+    listen(initSocketfd, 5);
+    clientAddressLength = sizeof(cllientAddress);
+    connectedSocketfd = accept(initSocketfd, (struct sockaddr *) &cllientAddress, &clientAddressLength);
+
+    if (connectedSocketfd < 0)
+    {
+        fprintf(stderr, "Error while accepting connection to socket: %s", strerror(errno));
+        exit(1);
+    }
+
+    //Zero out buffer
+    bzero(readBuffer, BUFFERSIZE);
+    //Make non-blocking socket for I/O
+
+    while (1)
+    {
+        safeRead(connectedSocketfd, readBuffer, BUFFERSIZE);
+        safeWrite(STDOUT_FILENO, readBuffer, 1);
+    }
+    
+
+
+
+    /*
 
     //Set up pipes to communicate between the shell and the new terminal
     if (pipe(pipeFromShell) < 0 || pipe(pipeToShell) < 0)
@@ -114,7 +167,7 @@ int main(int argc, char *argv[])
         safeClose(pipeToShell[READ_END]);
         safeClose(pipeFromShell[WRITE_END]);
 
-        char *const execOptions[1] = {NULL};
+        char* const execOptions[1] = {NULL};
 
         if (execvp("/bin/bash", execOptions) < 0)
         {
@@ -131,6 +184,7 @@ int main(int argc, char *argv[])
         //Close shell end of pipes
         safeClose(pipeToShell[READ_END]);
         safeClose(pipeFromShell[WRITE_END]);
+
         //Setup polling
         //Keyboard
         pollArray[KEYBOARD].fd = STDIN_FILENO;
@@ -145,4 +199,5 @@ int main(int argc, char *argv[])
     }
 
     exit(0);
+    */
 }

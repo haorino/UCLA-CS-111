@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <errno.h>
-#include "safeSysCalls.h"
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <signal.h>
+#include "SafeSysCalls.h"
 
 /* --- System calls with error handling --- */
 int safeRead(int fd, char *buffer, ssize_t size)
@@ -45,9 +50,9 @@ void safeClose(int fd)
     }
 }
 
-void safeKill(processID, SIGINT)
+void safeKill(int processID, int SIGNUM)
 {
-    if (kill(processID, SIGINT) < 0)
+    if (kill(processID, SIGNUM) < 0)
     {
         fprintf(stderr, "Kill failed: %s", strerror(errno));
         exit(1);
