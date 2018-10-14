@@ -16,6 +16,7 @@
 //Custom libraries and header files
 #include "SafeSysCalls.h"
 #include "Constants.h"
+#include "UtilityFunctions.h"
 
 // Global Variables
 char *readBuffer;
@@ -25,9 +26,9 @@ int pipeToShell[2], pipeFromShell[2];
 int initSocketfd, connectedSocketfd;
 unsigned int clientAddressLength;
 int processID;
-
+int serverMeta[9];
 //struct termios *defaultMode;
-struct pollfd pollArray[2];
+struct pollfd serverPollArray[2];
 struct sockaddr_in serverAddress, cllientAddress;
 //object containing internet address
 
@@ -77,9 +78,16 @@ int main(int argc, char *argv[])
             debugFlag = 1;
             break;
         default:
-            fprintf(stderr, "Usage: %s [--shell]", argv[0]);
+            fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] \n", argv[0]);
             exit(1);
         }
+    }
+
+    //Check for port flag, else abort with usage message
+    if (!portFlag)
+    {
+        fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] ", argv[0]);
+        exit(1);
     }
 
     atexit(restore);
@@ -95,12 +103,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    bzero((char *) &serverAddress, sizeof(serverAddress));
+    bzero((char *)&serverAddress, sizeof(serverAddress));
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr = INADDR_ANY;
     serverAddress.sin_port = htons(portNum);
 
-    if (bind(initSocketfd, (struct sockaddr *) &serverAddress, sizeof(serverAddress))  < 0)
+    if (bind(initSocketfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
     {
         fprintf(stderr, "Socket binding error: %s", strerror(errno));
         exit(1);
@@ -108,7 +116,7 @@ int main(int argc, char *argv[])
 
     listen(initSocketfd, 5);
     clientAddressLength = sizeof(cllientAddress);
-    connectedSocketfd = accept(initSocketfd, (struct sockaddr *) &cllientAddress, &clientAddressLength);
+    connectedSocketfd = accept(initSocketfd, (struct sockaddr *)&cllientAddress, &clientAddressLength);
 
     if (connectedSocketfd < 0)
     {
@@ -118,18 +126,10 @@ int main(int argc, char *argv[])
 
     //Zero out buffer
     bzero(readBuffer, BUFFERSIZE);
+
     //Make non-blocking socket for I/O
-
-    while (1)
-    {
-        safeRead(connectedSocketfd, readBuffer, BUFFERSIZE);
-        safeWrite(STDOUT_FILENO, readBuffer, 1);
-    }
-    
-
-
-
-    /*
+    //int flags = fcntl (0, F_GETFL);
+   // fcntl(connectedSocketfd, F_SETFL, flags | O_NONBLOCK);
 
     //Set up pipes to communicate between the shell and the new terminal
     if (pipe(pipeFromShell) < 0 || pipe(pipeToShell) < 0)
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
         safeClose(pipeToShell[READ_END]);
         safeClose(pipeFromShell[WRITE_END]);
 
-        char* const execOptions[1] = {NULL};
+        char *const execOptions[1] = {NULL};
 
         if (execvp("/bin/bash", execOptions) < 0)
         {
@@ -187,17 +187,28 @@ int main(int argc, char *argv[])
 
         //Setup polling
         //Keyboard
-        pollArray[KEYBOARD].fd = STDIN_FILENO;
-        pollArray[KEYBOARD].events = POLLIN;
+        serverPollArray[KEYBOARD].fd = connectedSocketfd;
+        serverPollArray[KEYBOARD].events = POLLIN;
 
         //Output from shell
-        pollArray[SHELL].fd = pipeFromShell[READ_END];
-        pollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
+        serverPollArray[SHELL].fd = pipeFromShell[READ_END];
+        serverPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
 
-        readOrPoll();
+        //Set up meta
+        serverMeta[FORMAT] = DEFAULT;
+        serverMeta[PIPE_TO_SHELL_READ] = pipeToShell[READ_END];
+        serverMeta[PIPE_TO_SHELL_WRITE] = pipeToShell[WRITE_END];
+        serverMeta[PIPE_FROM_SHELL_READ] = pipeFromShell[READ_END];
+        serverMeta[PIPE_FROM_SHELL_WRITE] = pipeFromShell[WRITE_END];
+        serverMeta[PROC_ID] = processID;
+        serverMeta[SOCKET] = connectedSocketfd;
+        serverMeta[SENDER] = SERVER;
+        serverMeta[LOG] = 0;
+
+        //Hand over to Utility Function readOrPoll
+        readOrPoll(serverPollArray, readBuffer, serverMeta, stderr);
         break;
     }
 
     exit(0);
-    */
 }

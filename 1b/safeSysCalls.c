@@ -13,7 +13,7 @@ int safeRead(int fd, char *buffer, ssize_t size)
     int status = read(fd, buffer, size);
     if (status < 0)
     {
-        fprintf(stderr, "Unable to read from STDIO %s", strerror(errno));
+        fprintf(stderr, "Unable to read from input %s\n", strerror(errno));
         exit(1);
     }
 
@@ -25,7 +25,7 @@ int safeWrite(int fd, char *buffer, ssize_t size)
     int status = write(fd, buffer, size);
     if (status != size)
     {
-        fprintf(stderr, "Unable to write to STDOUT %s", strerror(errno));
+        fprintf(stderr, "Unable to write to STDOUT %s\n", strerror(errno));
         exit(1);
     }
 
@@ -36,7 +36,7 @@ void safeDup2(int original_fd, int new_fd)
 {
     if (dup2(original_fd, new_fd) < 0)
     {
-        fprintf(stderr, "Dup2 failed: %s", strerror(errno));
+        fprintf(stderr, "Dup2 failed: %s\n", strerror(errno));
         exit(1);
     }
 }
@@ -45,7 +45,7 @@ void safeClose(int fd)
 {
     if (close(fd) < 0)
     {
-        fprintf(stderr, "Error closing file: %s", strerror(errno));
+        fprintf(stderr, "Error closing file: %s\n", strerror(errno));
         exit(1);
     }
 }
@@ -54,7 +54,7 @@ void safeKill(int processID, int SIGNUM)
 {
     if (kill(processID, SIGNUM) < 0)
     {
-        fprintf(stderr, "Kill failed: %s", strerror(errno));
+        fprintf(stderr, "Kill failed: %s\n", strerror(errno));
         exit(1);
     }
 }

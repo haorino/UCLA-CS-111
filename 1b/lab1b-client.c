@@ -17,19 +17,21 @@
 //Custom libraries and header files
 #include "SafeSysCalls.h"
 #include "Constants.h"
+#include "UtilityFunctions.h"
 
 // Global Variables
 struct termios defaultMode;
 char *readBuffer;
 int portNum;
+FILE *logFile;
 int encryptFlag, portFlag, logFlag;
 struct pollfd clientPollArray[2];
 int processID;
 struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
+int clientMeta[9];
 
-/* --- Utility Functions --- */
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore()
 {
@@ -50,8 +52,7 @@ int main(int argc, char *argv[])
     static struct option shell_options[] = {
         {"port", required_argument, 0, 'p'},
         {"encrypt", no_argument, 0, 'e'},
-        {"log", no_argument, 0, 'l'}
-        };
+        {"log", required_argument, 0, 'l'}};
 
     while ((option = getopt_long(argc, argv, "p:el", shell_options, NULL)) > -1)
     {
@@ -66,6 +67,7 @@ int main(int argc, char *argv[])
             break;
         case 'l':
             logFlag = 1;
+
             break;
 
         default:
@@ -106,45 +108,58 @@ int main(int argc, char *argv[])
     readBuffer = (char *)malloc(sizeof(char) * BUFFERSIZE);
 
     //Set up connection to socket to communicate with server
-    socketfd = socket(AF_INET, SOCK_STREAM, 0);     // Create socket
+    socketfd = socket(AF_INET, SOCK_STREAM, 0); // Create socket
     if (socketfd < 0)
     {
         fprintf(stderr, "Socket creation error: %s\n", strerror(errno));
         exit(1);
     }
 
-    server = gethostbyname("localhost");            // Get host IP address etc.
+    server = gethostbyname("localhost"); // Get host IP address etc.
     if (server == NULL)
     {
         fprintf(stderr, "Error no such host: %s\n", strerror(errno));
         exit(1);
     }
 
-    bzero((char *) &serverAddress, sizeof(serverAddress));  //zero out server address
-    serverAddress.sin_family = AF_INET;                     //
-    bcopy( (char *) server->h_addr, (char *) &serverAddress.sin_addr.s_addr, server->h_length); //Copies contents of server->h_addr into serverAddress field
+    bzero((char *)&serverAddress, sizeof(serverAddress));                                    //zero out server address
+    serverAddress.sin_family = AF_INET;                                                      //
+    bcopy((char *)server->h_addr, (char *)&serverAddress.sin_addr.s_addr, server->h_length); //Copies contents of server->h_addr into serverAddress field
     serverAddress.sin_port = htons(portNum);
 
-    if (connect(socketfd, &serverAddress, sizeof(serverAddress)) < 0) //connecting to server
+    if (connect(socketfd, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) //connecting to server
     {
         fprintf(stderr, "Socket connection error: %s\n", strerror(errno));
         exit(1);
     }
-    
+
     bzero(readBuffer, BUFFERSIZE);
 
-    //Set up socket to communicate between the client and the server
-    /*
-    //Set up polling 
+    //Make non-blocking socket for I/O
+   // int flags = fcntl (0, F_GETFL);
+   // fcntl(socketfd, F_SETFL, flags | O_NONBLOCK);
+
+    //Set up polling
     //For input from keyboard
     clientPollArray[KEYBOARD].fd = STDIN_FILENO;
-    clientPollArray[KEYBOARD].events = POLLIN;
+    clientPollArray[KEYBOARD].events = POLLIN | POLLHUP | POLLERR;;
 
     //For output from shell (coming through server)
-    // clientPollArray[SHELL].fd = socket
+    clientPollArray[SHELL].fd = socketfd;
     clientPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
 
-    readOrPoll();
-    */
+    //Set up meta
+    clientMeta[FORMAT] = DEFAULT;
+    clientMeta[PIPE_TO_SHELL_READ] = DEFAULT;
+    clientMeta[PIPE_TO_SHELL_WRITE] = DEFAULT;
+    clientMeta[PIPE_FROM_SHELL_READ] = DEFAULT;
+    clientMeta[PIPE_FROM_SHELL_WRITE] = DEFAULT;
+    clientMeta[PROC_ID] = DEFAULT;
+    clientMeta[SOCKET] = socketfd;
+    clientMeta[SENDER] = CLIENT;
+    clientMeta[LOG] = logFlag;
+
+    //Give over handling to Utility Function readOrPoll
+    readOrPoll(clientPollArray, readBuffer, clientMeta, logFile);
     exit(0);
 }

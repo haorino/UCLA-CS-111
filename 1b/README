@@ -1,0 +1,15 @@
+NAME: Siddharth Joshi
+EMAIL: sjoshi804@gmail.com
+ID: 105032378
+
+lab1a.c:
+
+Makefile:
+default -> builds the prokect
+clean -> deletes all object files, shared objects, dSYM folder and any other possible residue from working in the directory
+dist -> builds the tar ball with the z option for .tar.gz extension
+
+README:
+A brief description of the files included in this project.
+
+Sources:
