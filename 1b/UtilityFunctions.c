@@ -14,25 +14,18 @@
 MCRYPT cipherIn, cipherOut, decipherIn, decipherOut;
 int keyfd;
 
-void setUpEncryptionDecryption(MCRYPT *obj)
+void setUpEncryptionDecryption()
 {
-    obj = mcrypt_module_open("twofish", NULL, "cfb", NULL);
-    if (obj == MCRYPT_FAILED)
+    cipherIn = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (cipherIn == MCRYPT_FAILED)
     {
-        fprintf(stderr, "Module opening failed: %s\n", strerror(errno));
+        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
         exit(1);
     }
 
-    char *encryptionKey;
-    encryptionKey = malloc(KEY_LENGTH);
-    if (encryptionKey == NULL)
-    {
-        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    int initVectorSize = mcrypt_enc_get_iv_size(obj);
-    int *initVector;
+    //assign memory and read key
+    int initVectorSize = mcrypt_enc_get_iv_size(cipherIn);
+    int* initVector;
     initVector = malloc(initVectorSize);
     if (initVector == NULL)
     {
@@ -40,21 +33,15 @@ void setUpEncryptionDecryption(MCRYPT *obj)
         exit(1);
     }
 
-    memset(encryptionKey, 0, KEY_LENGTH);
-    safeRead(keyfd, encryptionKey, KEY_LENGTH);
-    safeClose(keyfd);
-
     int i;
     for (i = 0; i < initVectorSize; i++)
-        initVector[i] = 0;
-
-    if (mcrypt_generic_init(obj, encryptionKey, KEY_LENGTH, initVector) < 0)
+        initVector[i] = 0; //should definitely not be done like this in production cases
+    if (mcrypt_generic_init(cipherIn, "abcd", 4, initVector) < 0)
     {
-        fprintf(stderr, "Error initializing encryption module: %s\n", sterror(errno));
+        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
         exit(1);
     }
 
-    free(encryptionKey);
     free(initVector);
 }
 
@@ -111,12 +98,12 @@ void writeBytes(int numBytes, int writeFD, char *buffer, int *meta)
 // Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
 void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
 {
-    setUpEncryptionDecryption(cipherIn);
-    setUpEncryptionDecryption(cipherOut);
-    setUpEncryptionDecryption(decipherIn);
-    setUpEncryptionDecryption(decipherOut);
+    if (meta[KEY_FD] > 0)
+    {
+        setUpEncryptionDecryption();
+        keyfd = meta[KEY_FD];
+    }
 
-    keyfd = meta[KEY_FD];
     //Infinite loop to keep reading and/or polling
     while (1)
     {
@@ -158,7 +145,7 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
                         writeBytes(numBytes, meta[LOG], readBuffer, meta);
                         dprintf(meta[LOG], "\n");
                     }
-                    
+
                     meta[FORMAT] = DEFAULT; // Reset format for writing to socket
                     //Data must be written to socket to communicate
                     writeBytes(numBytes, meta[SOCKET], readBuffer, meta);

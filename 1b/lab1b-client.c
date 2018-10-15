@@ -30,7 +30,7 @@ int processID;
 struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
-int clientMeta[9];
+int clientMeta[META_SIZE];
 
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore()
@@ -170,6 +170,7 @@ int main(int argc, char *argv[])
     clientMeta[SOCKET] = socketfd;
     clientMeta[SENDER] = CLIENT;
     clientMeta[LOG] = logFlag;
+    clientMeta[KEY_FD] = encryptFlag;
 
     //Give over handling to Utility Function readOrPoll
     readOrPoll(clientPollArray, readBuffer, clientMeta);

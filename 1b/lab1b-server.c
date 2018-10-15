@@ -26,7 +26,7 @@ int pipeToShell[2], pipeFromShell[2];
 int initSocketfd, connectedSocketfd;
 unsigned int clientAddressLength;
 int processID;
-int serverMeta[9];
+int serverMeta[META_SIZE];
 //struct termios *defaultMode;
 struct pollfd serverPollArray[2];
 struct sockaddr_in serverAddress, cllientAddress;
@@ -208,6 +208,7 @@ int main(int argc, char *argv[])
         serverMeta[SOCKET] = connectedSocketfd;
         serverMeta[SENDER] = SERVER;
         serverMeta[LOG] = DEFAULT;
+        serverMeta[KEY_FD] = encryptFlag;
 
         //Hand over to Utility Function readOrPoll
         readOrPoll(serverPollArray, readBuffer, serverMeta);

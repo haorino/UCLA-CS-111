@@ -5,8 +5,8 @@
 
 
 default: lab1b-client.c lab1b-server.c SafeSysCalls.c UtilityFunctions.c
-	gcc -Wall -Wextra lab1b-client.c SafeSysCalls.c UtilityFunctions.c -o lab1b-client
-	gcc -Wall -Wextra lab1b-server.c SafeSysCalls.c UtilityFunctions.c -o lab1b-server
+	gcc -lmcrypt -Wall -Wextra lab1b-client.c SafeSysCalls.c UtilityFunctions.c -o lab1b-client
+	gcc -lmcrypt -Wall -Wextra lab1b-server.c SafeSysCalls.c UtilityFunctions.c -o lab1b-server
 clean:
 	rm -rf lab1b-client lab1b-server tar* *~ *.dSYM *.o *.so
 
