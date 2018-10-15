@@ -14,27 +14,27 @@
 MCRYPT cipherIn, cipherOut, decipherIn, decipherOut;
 int keyfd;
 
-void setUpEncryptionDecryption(MCRYPT* obj)
+void setUpEncryptionDecryption(MCRYPT *obj)
 {
-    obj = mcrypt_module_open("twofish", NULL, "cfb", NULL); 
-    if(obj == MCRYPT_FAILED)
+    obj = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (obj == MCRYPT_FAILED)
     {
         fprintf(stderr, "Module opening failed: %s\n", strerror(errno));
         exit(1);
     }
 
-    char* encryptionKey;
-    encryptionKey = malloc(KEY_LENGTH); 
-    if(encryptionKey == NULL)
+    char *encryptionKey;
+    encryptionKey = malloc(KEY_LENGTH);
+    if (encryptionKey == NULL)
     {
         fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
         exit(1);
     }
 
     int initVectorSize = mcrypt_enc_get_iv_size(obj);
-    int* initVector;
+    int *initVector;
     initVector = malloc(initVectorSize);
-    if(initVector == NULL) 
+    if (initVector == NULL)
     {
         fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
         exit(1);
@@ -45,10 +45,10 @@ void setUpEncryptionDecryption(MCRYPT* obj)
     safeClose(keyfd);
 
     int i;
-    for(i = 0; i < initVectorSize; i++)
-        initVector[i] = 0; 
+    for (i = 0; i < initVectorSize; i++)
+        initVector[i] = 0;
 
-    if(mcrypt_generic_init(obj, encryptionKey, KEY_LENGTH, initVector) < 0)
+    if (mcrypt_generic_init(obj, encryptionKey, KEY_LENGTH, initVector) < 0)
     {
         fprintf(stderr, "Error initializing encryption module: %s\n", sterror(errno));
         exit(1);
@@ -115,7 +115,7 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
     setUpEncryptionDecryption(cipherOut);
     setUpEncryptionDecryption(decipherIn);
     setUpEncryptionDecryption(decipherOut);
-    
+
     keyfd = meta[KEY_FD];
     //Infinite loop to keep reading and/or polling
     while (1)
@@ -150,10 +150,15 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
                     //Data in from actual keyboard, must be echoed to screen
                     writeBytes(numBytes, STDOUT_FILENO, readBuffer, meta);
 
-                    if (meta[LOG])
-                        fprintf(meta[LOG], "SENT %d bytes: %s", numBytes, readBuffer);
-
                     //Encrypt
+
+                    if (meta[LOG])
+                    {
+                        dprintf(meta[LOG], "SENT %d bytes: ", numBytes);
+                        writeBytes(numBytes, meta[LOG], readBuffer, meta);
+                        dprintf(meta[LOG], "\n");
+                    }
+                    
                     meta[FORMAT] = DEFAULT; // Reset format for writing to socket
                     //Data must be written to socket to communicate
                     writeBytes(numBytes, meta[SOCKET], readBuffer, meta);
@@ -165,7 +170,7 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
                     numBytes = safeRead(meta[SOCKET], readBuffer, BUFFERSIZE);
 
                     //Decrypt
-                    
+
                     meta[FORMAT] = SHELL_FORMAT;
                     //Data received from client, must be forwarded to shell
                     writeBytes(numBytes, meta[PIPE_TO_SHELL_WRITE], readBuffer, meta);
@@ -178,15 +183,18 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
             //Shell has output to be reads
             if (pollArray[SHELL].revents & POLLIN)
             {
-                
-                if (meta[LOG])
-                    fprintf(meta[LOG], "RECEIVED %d bytes: %s", numBytes, readBuffer);
 
                 if (meta[SENDER] == CLIENT)
                 {
                     // Server has output to be read
                     numBytes = safeRead(meta[SOCKET], readBuffer, BUFFERSIZE);
 
+                    if (meta[LOG])
+                    {
+                        dprintf(meta[LOG], "RECEIVED %d bytes: ", numBytes);
+                        writeBytes(numBytes, meta[LOG], readBuffer, meta);
+                        dprintf(meta[LOG], "\n");
+                    }
                     //Decrypt Buffer
 
                     meta[FORMAT] = STDOUT_FORMAT;
