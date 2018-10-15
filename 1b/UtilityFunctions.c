@@ -13,8 +13,9 @@
 
 MCRYPT cipherIn, cipherOut, decipherIn, decipherOut;
 int keyfd;
+int *initVector;
 
-void setUpEncryptionDecryption()
+void setUpCipherIn()
 {
     cipherIn = mcrypt_module_open("twofish", NULL, "cfb", NULL);
     if (cipherIn == MCRYPT_FAILED)
@@ -25,7 +26,6 @@ void setUpEncryptionDecryption()
 
     //assign memory and read key
     int initVectorSize = mcrypt_enc_get_iv_size(cipherIn);
-    int* initVector;
     initVector = malloc(initVectorSize);
     if (initVector == NULL)
     {
@@ -37,6 +37,96 @@ void setUpEncryptionDecryption()
     for (i = 0; i < initVectorSize; i++)
         initVector[i] = 0; //should definitely not be done like this in production cases
     if (mcrypt_generic_init(cipherIn, "abcd", 4, initVector) < 0)
+    {
+        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    free(initVector);
+}
+
+void setUpCipherOut()
+{
+    cipherOut = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (cipherOut == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    //assign memory and read key
+    int initVectorSize = mcrypt_enc_get_iv_size(cipherOut);
+    initVector = malloc(initVectorSize);
+    if (initVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    int i;
+    for (i = 0; i < initVectorSize; i++)
+        initVector[i] = 0; //should definitely not be done like this in production cases
+    if (mcrypt_generic_init(cipherOut, "abcd", 4, initVector) < 0)
+    {
+        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    free(initVector);
+}
+
+void setUpDecipherIn()
+{
+    decipherIn = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (decipherIn == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    //assign memory and read key
+    int initVectorSize = mcrypt_enc_get_iv_size(decipherIn);
+    initVector = malloc(initVectorSize);
+    if (initVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    int i;
+    for (i = 0; i < initVectorSize; i++)
+        initVector[i] = 0; //should definitely not be done like this in production cases
+    if (mcrypt_generic_init(decipherIn, "abcd", 4, initVector) < 0)
+    {
+        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    free(initVector);
+}
+
+void setUpDecipherOut()
+{
+    decipherOut = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (decipherOut == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    //assign memory and read key
+    int initVectorSize = mcrypt_enc_get_iv_size(decipherOut);
+    initVector = malloc(initVectorSize);
+    if (initVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    int i;
+    for (i = 0; i < initVectorSize; i++)
+        initVector[i] = 0; //should definitely not be done like this in production cases
+    if (mcrypt_generic_init(decipherOut, "abcd", 4, initVector) < 0)
     {
         fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
         exit(1);
@@ -95,12 +185,30 @@ void writeBytes(int numBytes, int writeFD, char *buffer, int *meta)
     }
 }
 
+void encryptOut(char *buffer, int length)
+{
+    int i;
+    for (i = 0; i < length; i++)
+    {
+        if (buffer[i] != '\r' && buffer[i] != '\n')
+        {
+            if (mcrypt_generic(cipherIn, &buffer[i], 1) != 0)
+            {
+                fprintf(stderr, "Encryption error: %s\n", strerror(errno));
+            }
+        }
+    }
+}
+
 // Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
 void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
 {
     if (meta[KEY_FD] > 0)
     {
-        setUpEncryptionDecryption();
+        setUpCipherIn();
+        setUpCipherOut();
+        setUpDecipherOut();
+        setUpDecipherIn();
         keyfd = meta[KEY_FD];
     }
 
@@ -182,7 +290,9 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
                         writeBytes(numBytes, meta[LOG], readBuffer, meta);
                         dprintf(meta[LOG], "\n");
                     }
+
                     //Decrypt Buffer
+                   // encryptOut(readBuffer, numBytes);
 
                     meta[FORMAT] = STDOUT_FORMAT;
                     //Data has been sent over from server, need to display to screen

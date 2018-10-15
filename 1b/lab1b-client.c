@@ -13,44 +13,239 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <mcrypt.h>
 
 //Custom libraries and header files
 #include "SafeSysCalls.h"
 #include "Constants.h"
-#include "UtilityFunctions.h"
 
 // Global Variables
 struct termios defaultMode;
-char *readBuffer;
+char readBuffer[BUFFERSIZE];
 int portNum;
-FILE *logFile;
 int encryptFlag, portFlag, logFlag;
 struct pollfd clientPollArray[2];
 int processID;
 struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
-int clientMeta[META_SIZE];
-
+MCRYPT cipherIn, decipherOut;
+int* initVector;
+int *deinitVector;
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore()
 {
     //Free memory
-    free(readBuffer);
 
     //Reset the modes
     tcsetattr(0, TCSANOW, &defaultMode);
 }
 
-/* --- Main Function --- */
+/* --- Encryption --- */
+void setUpCipherIn()
+{
+    cipherIn = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (cipherIn == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    //assign memory and read key
+    int initVectorSize = mcrypt_enc_get_iv_size(cipherIn);
+    initVector = malloc(initVectorSize);
+    if (initVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    int i;
+    for (i = 0; i < initVectorSize; i++)
+        initVector[i] = 0; //should definitely not be done like this in production cases
+    if (mcrypt_generic_init(cipherIn, "abcd", 4, initVector) < 0)
+    {
+        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    
+}
+
+void setUpDecipherOut()
+{
+    decipherOut = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (decipherOut == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    //assign memory and read key
+    int initVectorSize = mcrypt_enc_get_iv_size(decipherOut);
+    deinitVector = malloc(initVectorSize);
+    if (deinitVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    int i;
+    for (i = 0; i < initVectorSize; i++)
+        deinitVector[i] = 0; //should definitely not be done like this in production cases
+    if (mcrypt_generic_init(decipherOut, "abcd", 4, deinitVector) < 0)
+    {
+        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    
+}
+
+void encrypt(char* buffer, int length)
+{
+    int i;
+    for (i = 0; i < length; i++)
+    {
+        if (buffer[i] != '\r' && buffer[i] != '\n')
+        {
+            if (mcrypt_generic(cipherIn, buffer + i, 1) < 0)
+            {
+                fprintf(stderr, "Encryption failure: %s\n", strerror(errno));
+                exit(1);
+            }
+        }
+    }
+}
+
+void decrypt(char* buffer, int length)
+{
+    int i;
+    for (i = 0; i < length; i++)
+    {
+        if (buffer[i] != '\r' && buffer[i] != '\n')
+        {
+            if (mdecrypt_generic(decipherOut, buffer + i, 1) < 0)
+            {
+                fprintf(stderr, "Decryption failure: %s\n", strerror(errno));
+                exit(1);
+            }
+        }
+    }
+}
+
+/* --- Primary Functions --- */
+// Writes numBytes worth of data from a given buffer
+// Deals with special character according to format - specified in meta
+void writeBytes(int numBytes, int writeFD, char *buffer)
+{
+    int displacement;
+    for (displacement = 0; displacement < numBytes; displacement++)
+    {
+        char *charPosition = buffer + displacement;
+        switch (*(charPosition))
+        {
+        case '\r':
+        case '\n':
+            if (writeFD == STDOUT_FILENO)
+                safeWrite(writeFD, "\r\n", 2);
+            else
+                safeWrite(writeFD, charPosition, 1);
+            break;
+        //C-d
+        case 4:
+            safeWrite(writeFD, charPosition, 1);
+            break;
+        //C-c
+        case 3:
+            safeWrite(writeFD, charPosition, 1);
+            break;
+        default:
+            safeWrite(writeFD, charPosition, 1);
+            break;
+        }
+    }
+}
+
+// Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
+void readOrPoll(struct pollfd *pollArray, char *readBuffer)
+{
+    //Infinite loop to keep reading and/or polling
+    while (1)
+    {
+        int pendingReads = poll(pollArray, 2, 0);
+        int numBytes = 0;
+
+        //Polling sys call failure
+        if (pendingReads < 0)
+        {
+            fprintf(stderr, "Polling error: %s\n", strerror(errno));
+            exit(1);
+        }
+
+        //Nothing to poll - no reads needed go ahead, to next iteration
+        if (pendingReads == 0)
+            continue;
+
+        //.revents --> returns bits of events that occured, hence using bit manipulation...
+        //Keyboard has data to be read
+        if (pollArray[KEYBOARD].revents & POLLIN)
+        {
+
+            //Data has been sent in from keyboard, need to read it
+            numBytes = safeRead(STDIN_FILENO, readBuffer, BUFFERSIZE);
+
+            //Data in from actual keyboard, must be echoed to screen
+            writeBytes(numBytes, STDOUT_FILENO, readBuffer);
+
+            //Encrypt Buffer
+            encrypt(readBuffer, numBytes);
+
+            if (logFlag > 0)
+            {
+                dprintf(logFlag, "SENT %d bytes: ", numBytes);
+                writeBytes(numBytes, logFlag, readBuffer);
+                dprintf(logFlag, "\n");
+            }
+            // Reset format for writing to socket
+            //Data must be written to socket to communicate
+            writeBytes(numBytes, socketfd, readBuffer);
+        }
+
+        //Shell has output to be reads
+        if (pollArray[SHELL].revents & POLLIN)
+        {
+
+            // Server has output to be read
+            numBytes = safeRead(socketfd, readBuffer, BUFFERSIZE);
+
+            if (logFlag > 0)
+            {
+                dprintf(logFlag, "RECEIVED %d bytes: ", numBytes);
+                writeBytes(numBytes, logFlag, readBuffer);
+                dprintf(logFlag, "\n");
+            }
+
+            //Decrypt Buffer
+            decrypt(readBuffer, numBytes);
+
+            //Data has been sent over from server, need to display to screen
+            writeBytes(numBytes, STDOUT_FILENO, readBuffer);
+        }
+
+        if (pollArray[SHELL].revents & (POLLHUP | POLLERR))
+            exit(1);
+    }
+    return;
+}
 
 int main(int argc, char *argv[])
 {
     //Options
     int option = 1;
-    encryptFlag = DEFAULT;
-    logFlag = DEFAULT;
-    portFlag = DEFAULT;
+    encryptFlag = 0;
+    logFlag = 0;
+    portFlag = 0;
 
     static struct option shell_options[] = {
         {"port", required_argument, 0, 'p'},
@@ -83,7 +278,7 @@ int main(int argc, char *argv[])
             break;
 
         default:
-            fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] [--log]\n", argv[0]);
+            fprintf(stderr, "Usage: %s --port=portNum [--encrypt=file.key] [--log]\n", argv[0]);
             exit(1);
         }
     }
@@ -91,7 +286,7 @@ int main(int argc, char *argv[])
     //Check for port flag, else abort with usage message
     if (portFlag < 0)
     {
-        fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] [--log]", argv[0]);
+        fprintf(stderr, "Port option is mandatory. Usage: %s --port=portNum [--encrypt=file.key] [--log]\n", argv[0]);
         exit(1);
     }
 
@@ -116,9 +311,6 @@ int main(int argc, char *argv[])
 
     atexit(restore);
 
-    //Allocate memory to readBuffer
-    readBuffer = (char *)malloc(sizeof(char) * BUFFERSIZE);
-
     //Set up connection to socket to communicate with server
     socketfd = socket(AF_INET, SOCK_STREAM, 0); // Create socket
     if (socketfd < 0)
@@ -139,7 +331,7 @@ int main(int argc, char *argv[])
     bcopy((char *)server->h_addr, (char *)&serverAddress.sin_addr.s_addr, server->h_length); //Copies contents of server->h_addr into serverAddress field
     serverAddress.sin_port = htons(portNum);
 
-    if (connect(socketfd, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) //connecting to server
+    if (connect(socketfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) //connecting to server
     {
         fprintf(stderr, "Socket connection error: %s\n", strerror(errno));
         exit(1);
@@ -148,31 +340,26 @@ int main(int argc, char *argv[])
     bzero(readBuffer, BUFFERSIZE);
 
     //Make non-blocking socket for I/O
-   // int flags = fcntl (0, F_GETFL);
-   // fcntl(socketfd, F_SETFL, flags | O_NONBLOCK);
+    // int flags = fcntl (0, F_GETFL);
+    // fcntl(socketfd, F_SETFL, flags | O_NONBLOCK);
 
     //Set up polling
     //For input from keyboard
     clientPollArray[KEYBOARD].fd = STDIN_FILENO;
-    clientPollArray[KEYBOARD].events = POLLIN | POLLHUP | POLLERR;;
+    clientPollArray[KEYBOARD].events = POLLIN | POLLHUP | POLLERR;
+    ;
 
     //For output from shell (coming through server)
     clientPollArray[SHELL].fd = socketfd;
     clientPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
 
-    //Set up meta
-    clientMeta[FORMAT] = DEFAULT;
-    clientMeta[PIPE_TO_SHELL_READ] = DEFAULT;
-    clientMeta[PIPE_TO_SHELL_WRITE] = DEFAULT;
-    clientMeta[PIPE_FROM_SHELL_READ] = DEFAULT;
-    clientMeta[PIPE_FROM_SHELL_WRITE] = DEFAULT;
-    clientMeta[PROC_ID] = DEFAULT;
-    clientMeta[SOCKET] = socketfd;
-    clientMeta[SENDER] = CLIENT;
-    clientMeta[LOG] = logFlag;
-    clientMeta[KEY_FD] = encryptFlag;
+    if (encryptFlag > 0)
+    {
+        setUpCipherIn();
+        setUpDecipherOut();
+    }
 
     //Give over handling to Utility Function readOrPoll
-    readOrPoll(clientPollArray, readBuffer, clientMeta);
+    readOrPoll(clientPollArray, readBuffer);
     exit(0);
 }
