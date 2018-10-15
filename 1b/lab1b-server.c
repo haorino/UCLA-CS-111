@@ -57,6 +57,8 @@ int main(int argc, char *argv[])
     //Options
 
     int option = 1;
+    encryptFlag = DEFAULT;
+    portFlag = DEFAULT;
 
     static struct option shell_options[] = {
         {"port", required_argument, 0, 'p'},
@@ -72,13 +74,15 @@ int main(int argc, char *argv[])
             portNum = atoi(optarg);
             break;
         case 'e':
-            encryptFlag = 1;
-            break;
-        case 'd':
-            debugFlag = 1;
+            encryptFlag = open(optarg, O_RDONLY);
+            if (encryptFlag < 0)
+            {
+                fprintf(stderr, "Opening error: %s\n", strerror(errno));
+                exit(1);
+            }
             break;
         default:
-            fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] \n", argv[0]);
+            fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] [--log]\n", argv[0]);
             exit(1);
         }
     }
@@ -203,10 +207,10 @@ int main(int argc, char *argv[])
         serverMeta[PROC_ID] = processID;
         serverMeta[SOCKET] = connectedSocketfd;
         serverMeta[SENDER] = SERVER;
-        serverMeta[LOG] = 0;
+        serverMeta[LOG] = DEFAULT;
 
         //Hand over to Utility Function readOrPoll
-        readOrPoll(serverPollArray, readBuffer, serverMeta, stderr);
+        readOrPoll(serverPollArray, readBuffer, serverMeta);
         break;
     }
 

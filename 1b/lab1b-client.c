@@ -48,10 +48,13 @@ int main(int argc, char *argv[])
 {
     //Options
     int option = 1;
+    encryptFlag = DEFAULT;
+    logFlag = DEFAULT;
+    portFlag = DEFAULT;
 
     static struct option shell_options[] = {
         {"port", required_argument, 0, 'p'},
-        {"encrypt", no_argument, 0, 'e'},
+        {"encrypt", required_argument, 0, 'e'},
         {"log", required_argument, 0, 'l'}};
 
     while ((option = getopt_long(argc, argv, "p:el", shell_options, NULL)) > -1)
@@ -63,11 +66,20 @@ int main(int argc, char *argv[])
             portNum = atoi(optarg);
             break;
         case 'e':
-            encryptFlag = 1;
+            encryptFlag = open(optarg, O_RDONLY);
+            if (encryptFlag < 0)
+            {
+                fprintf(stderr, "Opening error: %s\n", strerror(errno));
+                exit(1);
+            }
             break;
         case 'l':
-            logFlag = 1;
-
+            logFlag = creat(optarg, O_WRONLY);
+            if (logFlag < 0)
+            {
+                fprintf(stderr, "Opening error: %s\n", strerror(errno));
+                exit(1);
+            }
             break;
 
         default:
@@ -77,7 +89,7 @@ int main(int argc, char *argv[])
     }
 
     //Check for port flag, else abort with usage message
-    if (!portFlag)
+    if (portFlag < 0)
     {
         fprintf(stderr, "Usage: %s [--port=portNum] [--encrypt=file.key] [--log]", argv[0]);
         exit(1);
@@ -160,6 +172,6 @@ int main(int argc, char *argv[])
     clientMeta[LOG] = logFlag;
 
     //Give over handling to Utility Function readOrPoll
-    readOrPoll(clientPollArray, readBuffer, clientMeta, logFile);
+    readOrPoll(clientPollArray, readBuffer, clientMeta);
     exit(0);
 }

@@ -9,6 +9,54 @@
 #include <poll.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <mcrypt.h>
+
+MCRYPT cipherIn, cipherOut, decipherIn, decipherOut;
+int keyfd;
+
+void setUpEncryptionDecryption(MCRYPT* obj)
+{
+    obj = mcrypt_module_open("twofish", NULL, "cfb", NULL); 
+    if(obj == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Module opening failed: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    char* encryptionKey;
+    encryptionKey = malloc(KEY_LENGTH); 
+    if(encryptionKey == NULL)
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    int initVectorSize = mcrypt_enc_get_iv_size(obj);
+    int* initVector;
+    initVector = malloc(initVectorSize);
+    if(initVector == NULL) 
+    {
+        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    memset(encryptionKey, 0, KEY_LENGTH);
+    safeRead(keyfd, encryptionKey, KEY_LENGTH);
+    safeClose(keyfd);
+
+    int i;
+    for(i = 0; i < initVectorSize; i++)
+        initVector[i] = 0; 
+
+    if(mcrypt_generic_init(obj, encryptionKey, KEY_LENGTH, initVector) < 0)
+    {
+        fprintf(stderr, "Error initializing encryption module: %s\n", sterror(errno));
+        exit(1);
+    }
+
+    free(encryptionKey);
+    free(initVector);
+}
 
 // Writes numBytes worth of data from a given buffer
 // Deals with special character according to format - specified in meta
@@ -61,8 +109,9 @@ void writeBytes(int numBytes, int writeFD, char *buffer, int *meta)
 }
 
 // Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
-void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta, FILE *logFile)
+void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
 {
+    keyfd = meta[KEY_FD];
     //Infinite loop to keep reading and/or polling
     while (1)
     {
