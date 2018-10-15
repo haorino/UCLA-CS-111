@@ -14,6 +14,6 @@
 #define KEYBOARD 0
 #define SHELL 1
 
-#define KEY_LENGTH 10
+#define KEY_LENGTH 16
 
 #endif

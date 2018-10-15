@@ -74,7 +74,7 @@ void setUpCipherOut()
     int i;
     for (i = 0; i < initVectorSize; i++)
         initVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(cipherOut, "abcd", 4, initVector) < 0)
+    if (mcrypt_generic_init(cipherOut, "abcdefghijklmno", 16, initVector) < 0)
     {
         fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
         exit(1);
@@ -101,43 +101,11 @@ void setUpDecipherIn()
 
     int i;
     for (i = 0; i < initVectorSize; i++)
-        initVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(decipherIn, "abcd", 4, initVector) < 0)
+        initVector[i] = 0;
+    if (mcrypt_generic_init(decipherIn, "abcdefghijklmno", 16, initVector) < 0)
     {
         fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
         exit(1);
-    }
-}
-
-void encrypt(char* buffer, int length)
-{
-    int i;
-    for (i = 0; i < length; i++)
-    {
-        if (buffer[i] != '\r' && buffer[i] != '\n')
-        {
-            if (mcrypt_generic(cipherOut, buffer + i, 1) < 0)
-            {
-                fprintf(stderr, "Encryption failure: %s\n", strerror(errno));
-                exit(1);
-            }
-        }
-    }
-}
-
-void decrypt(char* buffer, int length)
-{
-    int i;
-    for (i = 0; i < length; i++)
-    {
-        if (buffer[i] != '\r' && buffer[i] != '\n')
-        {
-            if (mdecrypt_generic(decipherIn, buffer + i, 1) < 0)
-            {
-                fprintf(stderr, "Decryption failure: %s\n", strerror(errno));
-                exit(1);
-            }
-        }
     }
 }
 
@@ -219,7 +187,15 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             numBytes = safeRead(connectedSocketfd, readBuffer, BUFFERSIZE);
 
             //Decrypt
-            decrypt(readBuffer, numBytes);
+            //Decrypt Buffer
+            if (encryptFlag > 0)
+            {/*
+                if (mdecrypt_generic(cipherOut, &readBuffer, numBytes) < 0)
+                {
+                    fprintf(stderr, "Decryption error: %s\n", strerror(errno));
+                    exit(1);
+                }*/
+            }
 
             //Data received from client, must be forwarded to shell
             writeBytes(numBytes, pipeToShell[WRITE_END], readBuffer);
@@ -232,8 +208,23 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             // Shell has output to be read
             numBytes = safeRead(pipeFromShell[READ_END], readBuffer, BUFFERSIZE);
 
-            //Encrypt
-            encrypt(readBuffer, numBytes);
+            //Encrypt Buffer
+            if (encryptFlag > 0)
+            {/*
+                int i;
+                for (i = 0; i < numBytes; i++)
+                {
+                    if (readBuffer[i] != '\r' && readBuffer[i] != '\n' && readBuffer[i] != 3 && readBuffer[i] != 4)
+                    {
+                        if (mcrypt_generic(cipherOut, readBuffer + i, 1) < 0)
+                        {
+                            fprintf(stderr, "Encryption failure: %s\n", strerror(errno));
+                            exit(1);
+                        }
+                    }
+                }*/
+                ;
+            }
 
             //Data has been sent over from actual shell, need to write to socket to client
             writeBytes(numBytes, connectedSocketfd, readBuffer);

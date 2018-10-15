@@ -30,7 +30,7 @@ struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
 MCRYPT cipherIn, decipherOut;
-int* initVector;
+int *initVector;
 int *deinitVector;
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore()
@@ -52,7 +52,8 @@ void setUpCipherIn()
     }
 
     //assign memory and read key
-    int initVectorSize = mcrypt_enc_get_iv_size(cipherIn);
+    int initVectorSize;
+    initVectorSize = mcrypt_enc_get_iv_size(cipherIn);
     initVector = malloc(initVectorSize);
     if (initVector == NULL)
     {
@@ -63,13 +64,11 @@ void setUpCipherIn()
     int i;
     for (i = 0; i < initVectorSize; i++)
         initVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(cipherIn, "abcd", 4, initVector) < 0)
+    if (mcrypt_generic_init(cipherIn, "abcdefghijklmno", 16, initVector) < 0)
     {
         fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
         exit(1);
     }
-
-    
 }
 
 void setUpDecipherOut()
@@ -82,7 +81,8 @@ void setUpDecipherOut()
     }
 
     //assign memory and read key
-    int initVectorSize = mcrypt_enc_get_iv_size(decipherOut);
+    int initVectorSize;
+    initVectorSize = mcrypt_enc_get_iv_size(decipherOut);
     deinitVector = malloc(initVectorSize);
     if (deinitVector == NULL)
     {
@@ -93,13 +93,11 @@ void setUpDecipherOut()
     int i;
     for (i = 0; i < initVectorSize; i++)
         deinitVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(decipherOut, "abcd", 4, deinitVector) < 0)
+    if (mcrypt_generic_init(decipherOut, "abcdefghijklmno", 16, deinitVector) < 0)
     {
         fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
         exit(1);
     }
-
-    
 }
 
 void encrypt(char* buffer, int length)
@@ -107,33 +105,10 @@ void encrypt(char* buffer, int length)
     int i;
     for (i = 0; i < length; i++)
     {
-        if (buffer[i] != '\r' && buffer[i] != '\n')
-        {
-            if (mcrypt_generic(cipherIn, buffer + i, 1) < 0)
-            {
-                fprintf(stderr, "Encryption failure: %s\n", strerror(errno));
-                exit(1);
-            }
-        }
+        if (buffer[i] != '\n' && buffer[i] != '\r' )
+            mcrypt_generic(cipherIn, buffer + i, 1);
     }
 }
-
-void decrypt(char* buffer, int length)
-{
-    int i;
-    for (i = 0; i < length; i++)
-    {
-        if (buffer[i] != '\r' && buffer[i] != '\n')
-        {
-            if (mdecrypt_generic(decipherOut, buffer + i, 1) < 0)
-            {
-                fprintf(stderr, "Decryption failure: %s\n", strerror(errno));
-                exit(1);
-            }
-        }
-    }
-}
-
 /* --- Primary Functions --- */
 // Writes numBytes worth of data from a given buffer
 // Deals with special character according to format - specified in meta
@@ -194,11 +169,10 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 
             //Data has been sent in from keyboard, need to read it
             numBytes = safeRead(STDIN_FILENO, readBuffer, BUFFERSIZE);
-
+            
             //Data in from actual keyboard, must be echoed to screen
             writeBytes(numBytes, STDOUT_FILENO, readBuffer);
 
-            //Encrypt Buffer
             encrypt(readBuffer, numBytes);
 
             if (logFlag > 0)
@@ -207,6 +181,8 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
                 writeBytes(numBytes, logFlag, readBuffer);
                 dprintf(logFlag, "\n");
             }
+
+            mdecrypt_generic(decipherOut, readBuffer, numBytes);
             // Reset format for writing to socket
             //Data must be written to socket to communicate
             writeBytes(numBytes, socketfd, readBuffer);
@@ -227,7 +203,10 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             }
 
             //Decrypt Buffer
-            decrypt(readBuffer, numBytes);
+            if (encryptFlag > 0)
+            {
+                //decrypt(buffer, length)
+            }
 
             //Data has been sent over from server, need to display to screen
             writeBytes(numBytes, STDOUT_FILENO, readBuffer);
