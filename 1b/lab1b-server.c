@@ -15,7 +15,7 @@
 #include <mcrypt.h>
 
 //Custom libraries and header files
-#include "SafeSysCalls.h"
+#include "safeSysCalls.h"
 #include "Constants.h"
 
 // Global Variables
@@ -26,11 +26,8 @@ int pipeToShell[2], pipeFromShell[2];
 int initSocketfd, connectedSocketfd;
 unsigned int clientAddressLength;
 int processID;
-//struct termios *defaultMode;
 struct pollfd serverPollArray[2];
 struct sockaddr_in serverAddress, cllientAddress;
-//object containing internet address
-MCRYPT cipherOut, decipherIn;
 
 /* --- Utility Functions --- */
 // Restores to pre-execution environment: frees memory, closes pipes etc.
@@ -38,7 +35,7 @@ void restore()
 {
     printf("WOOPS - haven't completed\n");
     //Close Pipes
-    
+
     //Free Memory
 
     //waitpid and shell exit code harvesting
@@ -50,62 +47,6 @@ void signal_handler(int sig)
     if (sig == SIGPIPE)
     {
         exit(0);
-    }
-}
-/* --- Encryption --- */
-void setUpCipherOut()
-{
-    cipherOut = mcrypt_module_open("twofish", NULL, "cfb", NULL);
-    if (cipherOut == MCRYPT_FAILED)
-    {
-        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    //assign memory and read key
-    int initVectorSize = mcrypt_enc_get_iv_size(cipherOut);
-    int initVector[initVectorSize];
-    /*if (initVector == NULL)
-    {
-        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
-        exit(1);
-    }*/
-
-    int i;
-    for (i = 0; i < initVectorSize; i++)
-        initVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(cipherOut, "abcdefghijklmno", 16, initVector) < 0)
-    {
-        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
-        exit(1);
-    }
-}
-
-void setUpDecipherIn()
-{
-    decipherIn = mcrypt_module_open("twofish", NULL, "cfb", NULL);
-    if (decipherIn == MCRYPT_FAILED)
-    {
-        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    //assign memory and read key
-    int initVectorSize = mcrypt_enc_get_iv_size(decipherIn);
-    int initVector[initVectorSize];
-    /*if (initVector == NULL)
-    {
-        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
-        exit(1);
-    }*/
-
-    int i;
-    for (i = 0; i < initVectorSize; i++)
-        initVector[i] = 0;
-    if (mcrypt_generic_init(decipherIn, "abcdefghijklmno", 16, initVector) < 0)
-    {
-        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
-        exit(1);
     }
 }
 
@@ -188,14 +129,6 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 
             //Decrypt
             //Decrypt Buffer
-            if (encryptFlag > 0)
-            {/*
-                if (mdecrypt_generic(cipherOut, &readBuffer, numBytes) < 0)
-                {
-                    fprintf(stderr, "Decryption error: %s\n", strerror(errno));
-                    exit(1);
-                }*/
-            }
 
             //Data received from client, must be forwarded to shell
             writeBytes(numBytes, pipeToShell[WRITE_END], readBuffer);
@@ -209,22 +142,6 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             numBytes = safeRead(pipeFromShell[READ_END], readBuffer, BUFFERSIZE);
 
             //Encrypt Buffer
-            if (encryptFlag > 0)
-            {/*
-                int i;
-                for (i = 0; i < numBytes; i++)
-                {
-                    if (readBuffer[i] != '\r' && readBuffer[i] != '\n' && readBuffer[i] != 3 && readBuffer[i] != 4)
-                    {
-                        if (mcrypt_generic(cipherOut, readBuffer + i, 1) < 0)
-                        {
-                            fprintf(stderr, "Encryption failure: %s\n", strerror(errno));
-                            exit(1);
-                        }
-                    }
-                }*/
-                ;
-            }
 
             //Data has been sent over from actual shell, need to write to socket to client
             writeBytes(numBytes, connectedSocketfd, readBuffer);
@@ -313,8 +230,8 @@ int main(int argc, char *argv[])
     bzero(readBuffer, BUFFERSIZE);
 
     //Make non-blocking socket for I/O
-    //int flags = fcntl (0, F_GETFL);
-    // fcntl(connectedSocketfd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl (0, F_GETFL);
+    fcntl(connectedSocketfd, F_SETFL, flags | O_NONBLOCK);
 
     //Set up pipes to communicate between the shell and the new terminal
     if (pipe(pipeFromShell) < 0 || pipe(pipeToShell) < 0)
@@ -378,12 +295,6 @@ int main(int argc, char *argv[])
         //Output from shell
         serverPollArray[SHELL].fd = pipeFromShell[READ_END];
         serverPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
-
-        if (encryptFlag > 0)
-        {
-            setUpCipherOut();
-            setUpDecipherIn();
-        }
 
         //Hand over to Utility Function readOrPoll
         readOrPoll(serverPollArray, readBuffer);

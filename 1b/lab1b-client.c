@@ -16,7 +16,7 @@
 #include <mcrypt.h>
 
 //Custom libraries and header files
-#include "SafeSysCalls.h"
+#include "safeSysCalls.h"
 #include "Constants.h"
 
 // Global Variables
@@ -29,9 +29,7 @@ int processID;
 struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
-MCRYPT cipherIn, decipherOut;
-int *initVector;
-int *deinitVector;
+
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore()
 {
@@ -41,74 +39,6 @@ void restore()
     tcsetattr(0, TCSANOW, &defaultMode);
 }
 
-/* --- Encryption --- */
-void setUpCipherIn()
-{
-    cipherIn = mcrypt_module_open("twofish", NULL, "cfb", NULL);
-    if (cipherIn == MCRYPT_FAILED)
-    {
-        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    //assign memory and read key
-    int initVectorSize;
-    initVectorSize = mcrypt_enc_get_iv_size(cipherIn);
-    initVector = malloc(initVectorSize);
-    if (initVector == NULL)
-    {
-        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    int i;
-    for (i = 0; i < initVectorSize; i++)
-        initVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(cipherIn, "abcdefghijklmno", 16, initVector) < 0)
-    {
-        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
-        exit(1);
-    }
-}
-
-void setUpDecipherOut()
-{
-    decipherOut = mcrypt_module_open("twofish", NULL, "cfb", NULL);
-    if (decipherOut == MCRYPT_FAILED)
-    {
-        fprintf(stderr, "Error opening module: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    //assign memory and read key
-    int initVectorSize;
-    initVectorSize = mcrypt_enc_get_iv_size(decipherOut);
-    deinitVector = malloc(initVectorSize);
-    if (deinitVector == NULL)
-    {
-        fprintf(stderr, "Memory allocation error: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    int i;
-    for (i = 0; i < initVectorSize; i++)
-        deinitVector[i] = 0; //should definitely not be done like this in production cases
-    if (mcrypt_generic_init(decipherOut, "abcdefghijklmno", 16, deinitVector) < 0)
-    {
-        fprintf(stderr, "Encryption initialization error: %s\n", strerror(errno));
-        exit(1);
-    }
-}
-
-void encrypt(char* buffer, int length)
-{
-    int i;
-    for (i = 0; i < length; i++)
-    {
-        if (buffer[i] != '\n' && buffer[i] != '\r' )
-            mcrypt_generic(cipherIn, buffer + i, 1);
-    }
-}
 /* --- Primary Functions --- */
 // Writes numBytes worth of data from a given buffer
 // Deals with special character according to format - specified in meta
@@ -169,11 +99,11 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 
             //Data has been sent in from keyboard, need to read it
             numBytes = safeRead(STDIN_FILENO, readBuffer, BUFFERSIZE);
-            
+
             //Data in from actual keyboard, must be echoed to screen
             writeBytes(numBytes, STDOUT_FILENO, readBuffer);
 
-            encrypt(readBuffer, numBytes);
+            //Encrypt Buffer
 
             if (logFlag > 0)
             {
@@ -182,7 +112,6 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
                 dprintf(logFlag, "\n");
             }
 
-            mdecrypt_generic(decipherOut, readBuffer, numBytes);
             // Reset format for writing to socket
             //Data must be written to socket to communicate
             writeBytes(numBytes, socketfd, readBuffer);
@@ -203,10 +132,6 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             }
 
             //Decrypt Buffer
-            if (encryptFlag > 0)
-            {
-                //decrypt(buffer, length)
-            }
 
             //Data has been sent over from server, need to display to screen
             writeBytes(numBytes, STDOUT_FILENO, readBuffer);
@@ -319,8 +244,8 @@ int main(int argc, char *argv[])
     bzero(readBuffer, BUFFERSIZE);
 
     //Make non-blocking socket for I/O
-    // int flags = fcntl (0, F_GETFL);
-    // fcntl(socketfd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(0, F_GETFL);
+    fcntl(socketfd, F_SETFL, flags | O_NONBLOCK);
 
     //Set up polling
     //For input from keyboard
@@ -331,12 +256,6 @@ int main(int argc, char *argv[])
     //For output from shell (coming through server)
     clientPollArray[SHELL].fd = socketfd;
     clientPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
-
-    if (encryptFlag > 0)
-    {
-        setUpCipherIn();
-        setUpDecipherOut();
-    }
 
     //Give over handling to Utility Function readOrPoll
     readOrPoll(clientPollArray, readBuffer);

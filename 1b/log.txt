@@ -1,0 +1,68 @@
+SENT 1 bytes: l
+SENT 1 bytes: s
+SENT 1 bytes: 
+RECEIVED 1 bytes: C
+RECEIVED 31 bytes: onstants.h
+Makefile
+Makefile~
+R
+RECEIVED 133 bytes: EADME
+UtilityFunctions.c
+UtilityFunctions.h
+lab1b-client
+lab1b-client.c
+lab1b-server
+lab1b-server.c
+log.txt
+newKey.txt
+safeSysCalls.c
+RECEIVED 21 bytes: 
+safeSysCalls.h
+test
+
+SENT 1 bytes: l
+SENT 1 bytes: s
+SENT 1 bytes: 
+RECEIVED 1 bytes: C
+RECEIVED 30 bytes: onstants.h
+Makefile
+Makefile~
+
+RECEIVED 122 bytes: README
+UtilityFunctions.c
+UtilityFunctions.h
+lab1b-client
+lab1b-client.c
+lab1b-server
+lab1b-server.c
+log.txt
+newKey.txt
+sa
+RECEIVED 33 bytes: feSysCalls.c
+safeSysCalls.h
+test
+
+SENT 1 bytes: l
+SENT 1 bytes: s
+SENT 1 bytes: 
+RECEIVED 1 bytes: C
+RECEIVED 20 bytes: onstants.h
+Makefile
+
+RECEIVED 63 bytes: Makefile~
+README
+UtilityFunctions.c
+UtilityFunctions.h
+lab1b-cl
+RECEIVED 102 bytes: ient
+lab1b-client.c
+lab1b-server
+lab1b-server.c
+log.txt
+newKey.txt
+safeSysCalls.c
+safeSysCalls.h
+test
+
+SENT 1 bytes: 
+RECEIVED 0 bytes: 

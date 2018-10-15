@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <signal.h>
-#include "SafeSysCalls.h"
+#include "safeSysCalls.h"
 
 /* --- System calls with error handling --- */
 int safeRead(int fd, char *buffer, ssize_t size)
