@@ -16,7 +16,7 @@
 #include <mcrypt.h>
 
 //Custom libraries and header files
-#include "SafeSysCalls.h"
+#include "safeSysCalls.h"
 #include "Constants.h"
 
 // Global Variables
