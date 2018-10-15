@@ -111,6 +111,11 @@ void writeBytes(int numBytes, int writeFD, char *buffer, int *meta)
 // Polls pipeFromShell and pipeToShell 's read ends for input and interrupts
 void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
 {
+    setUpEncryptionDecryption(cipherIn);
+    setUpEncryptionDecryption(cipherOut);
+    setUpEncryptionDecryption(decipherIn);
+    setUpEncryptionDecryption(decipherOut);
+    
     keyfd = meta[KEY_FD];
     //Infinite loop to keep reading and/or polling
     while (1)
@@ -146,7 +151,7 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
                     writeBytes(numBytes, STDOUT_FILENO, readBuffer, meta);
 
                     if (meta[LOG])
-                        fprintf(logFile, "SENT %d bytes: %s", numBytes, readBuffer);
+                        fprintf(meta[LOG], "SENT %d bytes: %s", numBytes, readBuffer);
 
                     //Encrypt
                     meta[FORMAT] = DEFAULT; // Reset format for writing to socket
@@ -170,12 +175,12 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer, int *meta)
                     printf("Aborting... - sender not specified");
             }
 
-            //Shell has output to be read
+            //Shell has output to be reads
             if (pollArray[SHELL].revents & POLLIN)
             {
                 
                 if (meta[LOG])
-                    fprintf(logFile, "RECEIVED %d bytes: %s", numBytes, readBuffer);
+                    fprintf(meta[LOG], "RECEIVED %d bytes: %s", numBytes, readBuffer);
 
                 if (meta[SENDER] == CLIENT)
                 {
