@@ -29,6 +29,9 @@ int processID;
 struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
+MCRYPT cipher;
+char *encryptionKey;
+int *initVector;
 
 // Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
 void restore()
@@ -37,6 +40,48 @@ void restore()
 
     //Reset the modes
     tcsetattr(0, TCSANOW, &defaultMode);
+}
+/* --- Encyrption functions --- */
+void setupEncryption()
+{
+    cipher = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (cipher == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Module opening error :%s", strerror(errno));
+        exit(1);
+    }
+
+    encryptionKey = malloc(KEY_LENGTH);
+    if (encryptionKey == NULL)
+    {
+        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        exit(1);
+    }
+
+    int ivSize = mcrypt_enc_get_iv_size(cipher);
+    initVector = malloc(ivSize);
+    if (initVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        exit(1);
+    }
+
+    memset(encryptionKey, 0, KEY_LENGTH);
+    safeRead(encryptFlag, encryptionKey, KEY_LENGTH);
+
+    safeClose(encryptFlag);
+
+    int i;
+    for (i = 0; i < ivSize; i++)
+        initVector[i] = 0;
+    if (mcrypt_generic_init(cipher, encryptionKey, KEY_LENGTH, initVector) < 0)
+    {
+        fprintf(stderr, "Mcrypt initialization failed :%s", strerror(errno));
+        exit(1);
+    }
+
+    free(encryptionKey);
+    free(initVector);
 }
 
 /* --- Primary Functions --- */
@@ -104,6 +149,21 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             writeBytes(numBytes, STDOUT_FILENO, readBuffer);
 
             //Encrypt Buffer
+            if (encryptFlag > 0)
+            {
+                int k;
+                for (k = 0; k < numBytes; k++)
+                {
+                    if (readBuffer[k] != '\r' && readBuffer[k] != '\n')
+                    {
+                        if (mcrypt_generic(cipher, &readBuffer[k], 1) != 0)
+                        {
+                            fprintf(stderr, "Encryption failure: %s", strerror(errno));
+                            exit(1);
+                        }
+                    }
+                }
+            }
 
             if (logFlag > 0)
             {
@@ -132,6 +192,14 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             }
 
             //Decrypt Buffer
+            if (encryptFlag > 0)
+            {
+                if (mdecrypt_generic(cipher, &readBuffer, numBytes) != 0)
+                {
+                    fprintf(stderr, "Decryption failure: %s", strerror(errno));
+                    exit(1);
+                }
+            }
 
             //Data has been sent over from server, need to display to screen
             writeBytes(numBytes, STDOUT_FILENO, readBuffer);
@@ -194,6 +262,10 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    //setup encryption if necessary
+    if (encryptFlag > 0)
+        setupEncryption();
+
     //Get terminal paramters
     tcgetattr(STDIN_FILENO, &defaultMode);
 
@@ -251,7 +323,6 @@ int main(int argc, char *argv[])
     //For input from keyboard
     clientPollArray[KEYBOARD].fd = STDIN_FILENO;
     clientPollArray[KEYBOARD].events = POLLIN | POLLHUP | POLLERR;
-    ;
 
     //For output from shell (coming through server)
     clientPollArray[SHELL].fd = socketfd;

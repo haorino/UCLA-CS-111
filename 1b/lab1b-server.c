@@ -28,6 +28,10 @@ unsigned int clientAddressLength;
 int processID;
 struct pollfd serverPollArray[2];
 struct sockaddr_in serverAddress, cllientAddress;
+MCRYPT cipher;
+int keyfd;
+char *encryptionKey;
+int *initVector;
 
 /* --- Utility Functions --- */
 // Restores to pre-execution environment: frees memory, closes pipes etc.
@@ -50,6 +54,49 @@ void signal_handler(int sig)
     }
 }
 
+/* --- Encryption Function --- */
+/* --- Encyrption functions --- */
+void setupEncryption()
+{
+    cipher = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (cipher == MCRYPT_FAILED)
+    {
+        fprintf(stderr, "Module opening error :%s", strerror(errno));
+        exit(1);
+    }
+
+    encryptionKey = malloc(KEY_LENGTH);
+    if (encryptionKey == NULL)
+    {
+        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        exit(1);
+    }
+
+    int ivSize = mcrypt_enc_get_iv_size(cipher);
+    initVector = malloc(ivSize);
+    if (initVector == NULL)
+    {
+        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        exit(1);
+    }
+
+    memset(encryptionKey, 0, KEY_LENGTH);
+    safeRead(keyfd, encryptionKey, KEY_LENGTH);
+
+    safeClose(encryptFlag);
+
+    int i;
+    for (i = 0; i < ivSize; i++)
+        initVector[i] = 0;
+    if (mcrypt_generic_init(cipher, encryptionKey, KEY_LENGTH, initVector) < 0)
+    {
+        fprintf(stderr, "Mcrypt initialization failed :%s", strerror(errno));
+        exit(1);
+    }
+
+    free(encryptionKey);
+    free(initVector);
+}
 /* --- Primary Functions --- */
 
 // Writes numBytes worth of data from a given buffer
@@ -129,6 +176,14 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 
             //Decrypt
             //Decrypt Buffer
+            if (encryptFlag > 0)
+            {
+                if (mdecrypt_generic(cipher, &readBuffer, numBytes) != 0)
+                {
+                    fprintf(stderr, "Decryption failure: %s", strerror(errno));
+                    exit(1);
+                }
+            }
 
             //Data received from client, must be forwarded to shell
             writeBytes(numBytes, pipeToShell[WRITE_END], readBuffer);
@@ -142,6 +197,21 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             numBytes = safeRead(pipeFromShell[READ_END], readBuffer, BUFFERSIZE);
 
             //Encrypt Buffer
+            if (encryptFlag > 0)
+            {
+                int k;
+                for (k = 0; k < numBytes; k++)
+                {
+                    if (readBuffer[k] != '\r' && readBuffer[k] != '\n')
+                    {
+                        if (mcrypt_generic(cipher, &readBuffer[k], 1) != 0)
+                        {
+                            fprintf(stderr, "Encryption failure: %s", strerror(errno));
+                            exit(1);
+                        }
+                    }
+                }
+            }
 
             //Data has been sent over from actual shell, need to write to socket to client
             writeBytes(numBytes, connectedSocketfd, readBuffer);
@@ -194,6 +264,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Port option is mandatory. Usage: %s --port=portNum [--encrypt=file.key]\n", argv[0]);
         exit(1);
     }
+    if (encryptFlag > 0)
+        setupEncryption();
 
     atexit(restore);
 
