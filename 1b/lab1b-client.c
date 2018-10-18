@@ -15,10 +15,73 @@
 #include <netdb.h>
 #include <mcrypt.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <signal.h>
 
-//Custom libraries and header files
-#include "safeSysCalls.h"
-#include "Constants.h"
+//
+#define BUFFERSIZE 256
+
+// Pipe structure
+#define WRITE_END 1
+#define READ_END 0
+
+// Poll fd array
+#define KEYBOARD 0
+#define SHELL 1
+
+#define KEY_LENGTH 16
+/* --- System calls with error handling --- */
+int safeRead(int fd, char *buffer, ssize_t size)
+{
+    int status = read(fd, buffer, size);
+    if (status < 0)
+    {
+        fprintf(stderr, "Unable to read from input %s\n", strerror(errno));
+        exit(1);
+    }
+
+    return status;
+}
+
+int safeWrite(int fd, char *buffer, ssize_t size)
+{
+    int status = write(fd, buffer, size);
+    if (status != size)
+    {
+        fprintf(stderr, "Unable to write to STDOUT %s\n", strerror(errno));
+        exit(1);
+    }
+
+    return status;
+}
+
+void safeDup2(int original_fd, int new_fd)
+{
+    if (dup2(original_fd, new_fd) < 0)
+    {
+        fprintf(stderr, "Dup2 failed: %s\n", strerror(errno));
+        exit(1);
+    }
+}
+
+void safeClose(int fd)
+{
+    if (close(fd) < 0)
+    {
+        fprintf(stderr, "Error closing file: %s\n", strerror(errno));
+        exit(1);
+    }
+}
+
+void safeKill(int processID, int SIGNUM)
+{
+    if (kill(processID, SIGNUM) < 0)
+    {
+        fprintf(stderr, "Kill failed: %s\n", strerror(errno));
+        exit(1);
+    }
+}
+
 
 // Global Variables
 struct termios defaultMode;
@@ -278,7 +341,7 @@ int main(int argc, char *argv[])
             }
             break;
         case 'l':
-            logFlag = creat(optarg, O_WRONLY);
+            logFlag = creat(optarg, S_IRWXU);
             if (logFlag < 0)
             {
                 fprintf(stderr, "Opening error: %s\n", strerror(errno));

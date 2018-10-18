@@ -2,7 +2,20 @@ NAME: Siddharth Joshi
 EMAIL: sjoshi804@gmail.com
 ID: 105032378
 
-lab1a.c:
+lab1b-client.c:
+Disables regular terminal modes and replaces with non cannonical non echo mode
+Takes option to do with port
+Sets up socket with local host at the specif port
+If connection is successful, starts read or poll function which constantly polls for input from keyboard and socket
+if input is received, it writes to the stdout and the socket (encrypted if encrypt flag specified) (logs it as well if log option specified)
+on shutdown restores regular terminal modes
+in case 0 bytes are sent closes the socket assuming no more transmission
+
+lab1b-server.c:
+Takes option specifying port, takes option specifying encrypt file
+Sets up socket to listen on port num specified
+If connectoin is successful, it forks and executes a shell on a child thread
+Polls for input, encrypts output to sent to socket, and handles shutdown (SIGINT, SIGPIPE, SIGTERM)
 
 Makefile:
 default -> builds the prokect
