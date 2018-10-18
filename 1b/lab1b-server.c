@@ -56,7 +56,7 @@ void encrypt(char *buffer, int cryptLength)
 void decrypt(char *buffer, int decryptLength)
 {
 
-    if (mcrypt_generic(cipher, buffer, decryptLength) != 0)
+    if (mdecrypt_generic(cipher, buffer, decryptLength) != 0)
     {
         fprintf(stderr, "Decryption error: %s", strerror(errno));
         exit(1);
