@@ -215,7 +215,7 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 
             //Skip ahead if 0 bytes
             if (numBytes == 0)
-                continue;
+                safeKill(processID, SIGTERM);
 
             //Encrypt Buffer
             if (encryptFlag > 0)

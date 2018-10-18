@@ -203,7 +203,10 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             
             //Skip ahead if 0 bytes
             if (numBytes == 0)
-                continue;
+            {
+                safeClose(socketfd);
+                exit(0);
+            }
 
             if (logFlag > 0)
             {
