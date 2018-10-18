@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <mcrypt.h>
-
+#include <sys/stat.h>
 //Custom libraries and header files
 #include "safeSysCalls.h"
 #include "Constants.h"
@@ -28,22 +28,11 @@ unsigned int clientAddressLength;
 int processID;
 struct pollfd serverPollArray[2];
 struct sockaddr_in serverAddress, cllientAddress;
-MCRYPT cipher;
-int keyfd;
+MCRYPT cipher, decipher;
 char *encryptionKey;
-int *initVector;
+int keyLength;
+struct stat keyStat;
 
-/* --- Utility Functions --- */
-// Restores to pre-execution environment: frees memory, closes pipes etc.
-void restore()
-{
-    printf("WOOPS - haven't completed\n");
-    //Close Pipes
-
-    //Free Memory
-
-    //waitpid and shell exit code harvesting
-}
 
 /* --- Signal Handler --- */
 void signal_handler(int sig)
@@ -54,49 +43,79 @@ void signal_handler(int sig)
     }
 }
 
-/* --- Encryption Function --- */
 /* --- Encyrption functions --- */
-void setupEncryption()
+void encrypt(char *buffer, int cryptLength)
 {
-    cipher = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (mcrypt_generic(cipher, buffer, cryptLength) != 0)
+    {
+        fprintf(stderr, "Encryption error: %s", strerror(errno));
+        exit(1);
+    }
+}
+
+void decrypt(char *buffer, int decryptLength)
+{
+
+    if (mcrypt_generic(cipher, buffer, decryptLength) != 0)
+    {
+        fprintf(stderr, "Decryption error: %s", strerror(errno));
+        exit(1);
+    }
+}
+
+void setupEncryption(char *key, int keyLength)
+{
+    cipher = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
     if (cipher == MCRYPT_FAILED)
     {
-        fprintf(stderr, "Module opening error :%s", strerror(errno));
+        fprintf(stderr, "Module opening error: %s", strerror(errno));
         exit(1);
     }
-
-    encryptionKey = malloc(KEY_LENGTH);
-    if (encryptionKey == NULL)
+    if (mcrypt_generic_init(cipher, key, keyLength, NULL) < 0)
     {
-        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        fprintf(stderr, "MCRYPT initialization error: %s", strerror(errno));
         exit(1);
     }
 
-    int ivSize = mcrypt_enc_get_iv_size(cipher);
-    initVector = malloc(ivSize);
-    if (initVector == NULL)
+    decipher = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
+    if (decipher == MCRYPT_FAILED)
     {
-        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        fprintf(stderr, "Module opening error: %s", strerror(errno));
         exit(1);
     }
-
-    memset(encryptionKey, 0, KEY_LENGTH);
-    safeRead(keyfd, encryptionKey, KEY_LENGTH);
-
-    safeClose(encryptFlag);
-
-    int i;
-    for (i = 0; i < ivSize; i++)
-        initVector[i] = 0;
-    if (mcrypt_generic_init(cipher, encryptionKey, KEY_LENGTH, initVector) < 0)
+    if (mcrypt_generic_init(decipher, key, keyLength, NULL) < 0)
     {
-        fprintf(stderr, "Mcrypt initialization failed :%s", strerror(errno));
+        fprintf(stderr, "Decryption error: %s", strerror(errno));
         exit(1);
     }
-
-    free(encryptionKey);
-    free(initVector);
 }
+
+void encryptionShutDown()
+{
+    mcrypt_generic_deinit(cipher);
+    mcrypt_module_close(cipher);
+
+    mcrypt_generic_deinit(decipher);
+    mcrypt_module_close(decipher);
+}
+/* --- Utility Functions --- */
+// Restores to pre-execution environment: frees memory, closes pipes etc.
+void restore()
+{
+    //Free Memory
+    free(encryptionKey);
+
+    //De-initialize encryption tools
+    if (encryptFlag > 0)
+        encryptionShutDown();
+
+    //waitpid and shell exit code harvesting
+    int status;
+    if (waitpid(processID, &status, 0) == -1)
+        fprintf(stderr, "WAITPID failed: %s\n", strerror(errno));
+    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d\n", WTERMSIG(status), WEXITSTATUS(status));
+}
+
 /* --- Primary Functions --- */
 
 // Writes numBytes worth of data from a given buffer
@@ -178,11 +197,9 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             //Decrypt Buffer
             if (encryptFlag > 0)
             {
-                if (mdecrypt_generic(cipher, &readBuffer, numBytes) != 0)
-                {
-                    fprintf(stderr, "Decryption failure: %s", strerror(errno));
-                    exit(1);
-                }
+                int dcount;
+                for (dcount = 0; dcount < numBytes; dcount++)
+                    decrypt(readBuffer + dcount, 1);
             }
 
             //Data received from client, must be forwarded to shell
@@ -199,18 +216,9 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             //Encrypt Buffer
             if (encryptFlag > 0)
             {
-                int k;
-                for (k = 0; k < numBytes; k++)
-                {
-                    if (readBuffer[k] != '\r' && readBuffer[k] != '\n')
-                    {
-                        if (mcrypt_generic(cipher, &readBuffer[k], 1) != 0)
-                        {
-                            fprintf(stderr, "Encryption failure: %s", strerror(errno));
-                            exit(1);
-                        }
-                    }
-                }
+                int eCount;
+                for (eCount = 0; eCount < numBytes; eCount++)
+                    encrypt(readBuffer + eCount, 1);
             }
 
             //Data has been sent over from actual shell, need to write to socket to client
@@ -251,6 +259,20 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Opening error: %s\n", strerror(errno));
                 exit(1);
             }
+            else
+            {
+                if (fstat(encryptFlag, &keyStat) < 0)
+                {
+                    fprintf(stderr, "Fstat error: %s", strerror(errno));
+                    exit(1);
+                }
+                if ((encryptionKey = malloc(keyStat.st_size * sizeof(char))) < 0)
+                {
+                    fprintf(stderr, "Memory allocation error: %s", strerror(errno));
+                    exit(1);
+                }
+                keyLength = safeRead(encryptFlag, encryptionKey, keyStat.st_size * sizeof(char));
+            }
             break;
         default:
             fprintf(stderr, "Usage: %s --port=portNum [--encrypt=file.key]\n", argv[0]);
@@ -264,8 +286,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Port option is mandatory. Usage: %s --port=portNum [--encrypt=file.key]\n", argv[0]);
         exit(1);
     }
-    if (encryptFlag > 0)
-        setupEncryption();
 
     atexit(restore);
 
@@ -302,7 +322,7 @@ int main(int argc, char *argv[])
     bzero(readBuffer, BUFFERSIZE);
 
     //Make non-blocking socket for I/O
-    int flags = fcntl (0, F_GETFL);
+    int flags = fcntl(0, F_GETFL);
     fcntl(connectedSocketfd, F_SETFL, flags | O_NONBLOCK);
 
     //Set up pipes to communicate between the shell and the new terminal
@@ -367,6 +387,9 @@ int main(int argc, char *argv[])
         //Output from shell
         serverPollArray[SHELL].fd = pipeFromShell[READ_END];
         serverPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
+
+        if (encryptFlag > 0)
+            setupEncryption(encryptionKey, keyLength);
 
         //Hand over to Utility Function readOrPoll
         readOrPoll(serverPollArray, readBuffer);

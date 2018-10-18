@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <mcrypt.h>
+#include <sys/stat.h>
 
 //Custom libraries and header files
 #include "safeSysCalls.h"
@@ -29,59 +30,83 @@ int processID;
 struct sockaddr_in serverAddress;
 struct hostent *server;
 int socketfd;
-MCRYPT cipher;
+MCRYPT cipher, decipher;
 char *encryptionKey;
-int *initVector;
+int keyLength;
+struct stat keyStat;
 
-// Restores to pre-execution environment: frees memory, resets terminal attributes, closes pipes etc.
-void restore()
-{
-    //Free memory
 
-    //Reset the modes
-    tcsetattr(0, TCSANOW, &defaultMode);
-}
+
 /* --- Encyrption functions --- */
-void setupEncryption()
+void encrypt(char *buffer, int cryptLength)
 {
-    cipher = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+    if (mcrypt_generic(cipher, buffer, cryptLength) != 0)
+    {
+        fprintf(stderr, "Encryption error: %s", strerror(errno));
+        exit(1);
+    }
+}
+
+void decrypt(char *buffer, int decryptLength)
+{
+
+    if (mcrypt_generic(cipher, buffer, decryptLength) != 0)
+    {
+        fprintf(stderr, "Decryption error: %s", strerror(errno));
+        exit(1);
+    }
+}
+
+void setupEncryption(char *key, int keyLength)
+{
+    cipher = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
     if (cipher == MCRYPT_FAILED)
     {
-        fprintf(stderr, "Module opening error :%s", strerror(errno));
+        fprintf(stderr, "Module opening error: %s", strerror(errno));
         exit(1);
     }
-
-    encryptionKey = malloc(KEY_LENGTH);
-    if (encryptionKey == NULL)
+    if (mcrypt_generic_init(cipher, key, keyLength, NULL) < 0)
     {
-        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        fprintf(stderr, "MCRYPT initialization error: %s", strerror(errno));
         exit(1);
     }
 
-    int ivSize = mcrypt_enc_get_iv_size(cipher);
-    initVector = malloc(ivSize);
-    if (initVector == NULL)
+    decipher = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
+    if (decipher == MCRYPT_FAILED)
     {
-        fprintf(stderr, "Memory allocation error :%s", strerror(errno));
+        fprintf(stderr, "Module opening error: %s", strerror(errno));
         exit(1);
     }
-
-    memset(encryptionKey, 0, KEY_LENGTH);
-    safeRead(encryptFlag, encryptionKey, KEY_LENGTH);
-
-    safeClose(encryptFlag);
-
-    int i;
-    for (i = 0; i < ivSize; i++)
-        initVector[i] = 0;
-    if (mcrypt_generic_init(cipher, encryptionKey, KEY_LENGTH, initVector) < 0)
+    if (mcrypt_generic_init(decipher, key, keyLength, NULL) < 0)
     {
-        fprintf(stderr, "Mcrypt initialization failed :%s", strerror(errno));
+        fprintf(stderr, "Decryption error: %s", strerror(errno));
         exit(1);
     }
+}
 
+void encryptionShutDown()
+{
+	mcrypt_generic_deinit(cipher);
+	mcrypt_module_close(cipher);
+
+	mcrypt_generic_deinit(decipher);
+	mcrypt_module_close(decipher);
+}
+
+/* --- Utility Functions --- */
+// Restores to pre-execution environment: frees memory, closes pipes etc.
+void restore()
+{
+    //Free Memory
     free(encryptionKey);
-    free(initVector);
+
+    //Reset terminal mode
+    tcsetattr(STDIN_FILENO, TCSANOW, &defaultMode);
+
+    //De-initialize encryption tools
+    if (encryptFlag > 0)
+        encryptionShutDown();
+
 }
 
 /* --- Primary Functions --- */
@@ -151,19 +176,11 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             //Encrypt Buffer
             if (encryptFlag > 0)
             {
-                int k;
-                for (k = 0; k < numBytes; k++)
-                {
-                    if (readBuffer[k] != '\r' && readBuffer[k] != '\n')
-                    {
-                        if (mcrypt_generic(cipher, &readBuffer[k], 1) != 0)
-                        {
-                            fprintf(stderr, "Encryption failure: %s", strerror(errno));
-                            exit(1);
-                        }
-                    }
-                }
+                int eCount;
+                for (eCount = 0; eCount < numBytes; eCount++)
+                    encrypt(readBuffer + eCount, 1);
             }
+                
 
             if (logFlag > 0)
             {
@@ -194,11 +211,9 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
             //Decrypt Buffer
             if (encryptFlag > 0)
             {
-                if (mdecrypt_generic(cipher, &readBuffer, numBytes) != 0)
-                {
-                    fprintf(stderr, "Decryption failure: %s", strerror(errno));
-                    exit(1);
-                }
+                int dCount;
+                for (dCount = 0; dCount < numBytes; dCount++)
+                    decrypt(readBuffer + dCount, 1);
             }
 
             //Data has been sent over from server, need to display to screen
@@ -239,6 +254,21 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Opening error: %s\n", strerror(errno));
                 exit(1);
             }
+            else
+            {
+                if (fstat(encryptFlag, &keyStat) < 0)
+                {
+                    fprintf(stderr, "Fstat error: %s", strerror(errno));
+                    exit(1);
+                }
+                if ((encryptionKey = malloc(keyStat.st_size * sizeof(char))) < 0)
+                {
+                    fprintf(stderr, "Memory allocation error: %s", strerror(errno));
+                    exit(1);
+                }
+                keyLength = safeRead(encryptFlag, encryptionKey, keyStat.st_size * sizeof(char));
+                safeClose(encryptFlag);
+            }
             break;
         case 'l':
             logFlag = creat(optarg, O_WRONLY);
@@ -261,10 +291,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Port option is mandatory. Usage: %s --port=portNum [--encrypt=file.key] [--log]\n", argv[0]);
         exit(1);
     }
-
-    //setup encryption if necessary
-    if (encryptFlag > 0)
-        setupEncryption();
 
     //Get terminal paramters
     tcgetattr(STDIN_FILENO, &defaultMode);
@@ -327,6 +353,10 @@ int main(int argc, char *argv[])
     //For output from shell (coming through server)
     clientPollArray[SHELL].fd = socketfd;
     clientPollArray[SHELL].events = POLL_IN | POLL_HUP | POLL_ERR;
+
+    //setup encryption if necessary
+    if (encryptFlag > 0)
+        setupEncryption(encryptionKey, keyLength);
 
     //Give over handling to Utility Function readOrPoll
     readOrPoll(clientPollArray, readBuffer);
