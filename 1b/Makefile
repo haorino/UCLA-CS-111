@@ -11,4 +11,4 @@ clean:
 	rm -rf lab1b-client lab1b-server tar* *~ *.dSYM *.o *.so
 
 dist:
-	tar -czf lab1b-105032378.tar.gz lab1b* SafeSysCalls* UtilityFunctions* Constants.h  README Makefile 
+	tar -czf lab1b-105032378.tar.gz lab1b-client.c lab1b-server.c safeSysCalls.c safeSysCalls.h Constants.h  README Makefile my.key

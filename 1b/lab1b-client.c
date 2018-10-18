@@ -200,6 +200,10 @@ void readOrPoll(struct pollfd *pollArray, char *readBuffer)
 
             // Server has output to be read
             numBytes = safeRead(socketfd, readBuffer, BUFFERSIZE);
+            
+            //Skip ahead if 0 bytes
+            if (numBytes == 0)
+                continue;
 
             if (logFlag > 0)
             {
@@ -261,7 +265,7 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Fstat error: %s", strerror(errno));
                     exit(1);
                 }
-                if ((encryptionKey = malloc(keyStat.st_size * sizeof(char))) < 0)
+                if ((encryptionKey = malloc(keyStat.st_size * sizeof(char))) == NULL)
                 {
                     fprintf(stderr, "Memory allocation error: %s", strerror(errno));
                     exit(1);
