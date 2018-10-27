@@ -13,7 +13,7 @@
 
 //Global vairables
 int yieldFlag;
-char *lockType;
+char lockType;
 long long *sum;
 long long numOfIterations;
 pthread_mutex_t sumMutex;
@@ -28,7 +28,8 @@ void printErrorAndExit(const char *errorMsg, int errorNum)
 
 void printUsageAndExit(char *argv0)
 {
-    fprintf(stderr, "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield] [--sync={m,s,c}]\n", argv0);
+    fprintf(stderr,
+            "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield] --sync={m,s,c}]\n", argv0);
     exit(1);
 }
 
@@ -42,32 +43,31 @@ void add(long long *pointer, long long value)
 }
 
 //Different sync mechanisms
-void (*lockedAdd)(long long *pointer, long long value); //Function pointer for different sync mechanisms adds
+void (*lockedAdd)(long long *pointer, long long value); //Function ptr different sync mechanisms adds
 
 void mutexAdd(long long *pointer, long long value) //Using mutex
 {
     //Try to obtain the lock
     if (pthread_mutex_lock(&sumMutex) != 0)
         printErrorAndExit("locking mutex on sum", errno);
-    
+
     add(pointer, value);
-    
+
     if (pthread_mutex_unlock(&sumMutex) != 0)
         printErrorAndExit("unlocking mutex on sum", errno);
-
 }
 
 void spinAdd(long long *pointer, long long value) //Using custom spin lock
 {
     while (__sync_lock_test_and_set(&spinLock, 1) == 1)
         ; //spin i.e. keep trying to obtain lock
-    
+
     add(pointer, value);
 
     __sync_lock_release(&spinLock);
 }
 
-void atomicSyncAdd(long long *pointer, long long value) //Using compare and swap to ensure value is being added to oldSum
+void atomicSyncAdd(long long *pointer, long long value) //Using compare & swap to ensure oldSum is added to
 {
     long long oldSum, newSum;
     do
@@ -77,22 +77,19 @@ void atomicSyncAdd(long long *pointer, long long value) //Using compare and swap
 
         if (yieldFlag)
             sched_yield();
-    }
-    while (oldSum != __sync_val_compare_and_swap(pointer, oldSum, newSum));
+    } while (oldSum != __sync_val_compare_and_swap(pointer, oldSum, newSum));
 }
 
 //Utility functions
-void iterateOverAdd()
+void *iterateOverAdd()
 {
     long long i;
     for (i = 0; i < numOfIterations; i++)
         lockedAdd(sum, 1);
     for (i = 0; i < numOfIterations; i++)
         lockedAdd(sum, -1);
-    return;
+    return NULL;
 }
-
-
 
 int main(int argc, char *argv[])
 {
@@ -101,21 +98,23 @@ int main(int argc, char *argv[])
     numOfThreads = 1;
     numOfIterations = 1;
     yieldFlag = 0;
-    lockType = "none";
+    lockType = 'n';
     *sum = 0;
 
-    while (1)
+   
+
+    //Initializing options
+    int option_index = 0;
+    static struct option long_options[] = {
+        {"threads", required_argument, 0, 'i'},
+        {"iterations", required_argument, 0, 'o'},
+        {"yield", no_argument, 0, 'o'},
+        {"sync", required_argument, 0, 's'}};
+
+    
+
+    while ((argsLeft = getopt_long(argc, argv, "t:i:s:", long_options, &option_index)) != -1)
     {
-        int option_index = 0;
-        static struct option long_options[] = {
-            {"threads", required_argument, 0, 'i'},
-            {"iterations", required_argument, 0, 'o'},
-            {"yield", no_argument, 0, 'o'},
-
-        };
-
-        argsLeft = getopt_long(argc, argv, "t:i:", long_options, &option_index);
-
         //Check if any valid arguments are left
         if (argsLeft == -1)
             break;
@@ -136,10 +135,10 @@ int main(int argc, char *argv[])
             break;
 
         case 's':
-            if (strcmp(optarg, "m") || strcmp(optarg, "s") || strcmp(optarg, "c"))
+            if (strlen(optarg) != 1 && (strcmp(optarg, "m") || strcmp(optarg, "s") || strcmp(optarg, "c")))
                 printUsageAndExit(argv[0]);
             else
-                lockType = optarg;
+                lockType = optarg[0];
             break;
 
         default:
@@ -147,24 +146,26 @@ int main(int argc, char *argv[])
         }
     }
 
+    
+
     //Initialize and allocate memory for array of pthreads
     pthread_t *pthreadsArray;
     pthreadsArray = malloc(numOfThreads * sizeof(pthread_t));
 
     //Set type of add to be used
-    switch(lockType[0])
+    switch (lockType)
     {
-        case 's':
-            lockedAdd = &spinAdd;
-            break;
-        case 'm':
-            lockedAdd = &mutexAdd;
-            break;
-        case 'c':
-            lockedAdd = &atomicSyncAdd;
-            break;
-        default:
-            lockedAdd = &add;
+    case 's':
+        lockedAdd = &spinAdd;
+        break;
+    case 'm':
+        lockedAdd = &mutexAdd;
+        break;
+    case 'c':
+        lockedAdd = &atomicSyncAdd;
+        break;
+    default:
+        lockedAdd = &add;
     }
 
     //Initialize timer
@@ -175,7 +176,7 @@ int main(int argc, char *argv[])
     //Create threads
     for (i = 0; i < numOfThreads; i++)
     {
-        if (pthread_create(pthreadsArray[i], NULL, iterateOverAdd, NULL) != 0)
+        if (pthread_create(&pthreadsArray[i], NULL, iterateOverAdd, NULL) != 0)
             printErrorAndExit("creating pthread", errno);
     }
 
@@ -189,7 +190,8 @@ int main(int argc, char *argv[])
     //Calculate time taken for process
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime) < 0)
         printErrorAndExit("getting end time", errno);
-    long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L + (endTime.tv_nsec - startTime.tv_nsec);
+    long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L +
+                        (endTime.tv_nsec - startTime.tv_nsec);
 
     //Free memory
     free(pthreadsArray);
@@ -197,8 +199,9 @@ int main(int argc, char *argv[])
     //Print output
     long long numOfOperations = numOfIterations * numOfThreads * 2;
     long long timePerOperation = runTime / numOfOperations;
-    printf("add%s-%s,%d,%lld,%lld,%lld,%lld,%lld\n", yieldFlag ? "" : "-yield", lockType, numOfIterations, numOfIterations,
-           numOfOperations, runTime, timePerOperation, *sum);
+    printf("add%s-%s,%d,%lld,%lld,%lld,%lld,%lld\n", yieldFlag ? "" : "-yield",
+           lockType == 'n' ? "none" : lockType == 's' ? "s" : lockType == 'm' ? "m" : "c",
+           numOfThreads, numOfIterations, numOfOperations, runTime, timePerOperation, *sum);
 
     exit(0);
 
