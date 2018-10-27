@@ -14,7 +14,7 @@
 //Global vairables
 int yieldFlag;
 char lockType;
-long long *sum;
+long long counter;
 long long numOfIterations;
 pthread_mutex_t sumMutex;
 int spinLock;
@@ -85,9 +85,9 @@ void *iterateOverAdd()
 {
     long long i;
     for (i = 0; i < numOfIterations; i++)
-        lockedAdd(sum, 1);
+        lockedAdd(&counter, 1);
     for (i = 0; i < numOfIterations; i++)
-        lockedAdd(sum, -1);
+        lockedAdd(&counter, -1);
     return NULL;
 }
 
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     numOfIterations = 1;
     yieldFlag = 0;
     lockType = 'n';
-    *sum = 0;
+    counter = 0;
 
    
 
