@@ -1,0 +1,22 @@
+NAME: Siddharth Joshi
+EMAIL: sjoshi804@gmail.com
+ID: 105032378
+
+serial: BBGW16062642
+MAC: 2c:f7:f1:06:53:24
+
+The tarball contains the following files:
+
+my_beaglebone.jpg: A picture of me and my beaglebone
+
+connected.png: the output of ifconfig, also shows name & wifi configured
+
+copy.png: a screenshot showing a successful scp of a c file to the beaglebone
+
+build_run.png: a screenshot of a successful build and run in an beaglebone session
+
+git.png: a screenshot that shows git was installed, and a successful clone of a git repo
+
+Makefile: tars all files
+
+README: contains information about the beaglebone and file descriptions
