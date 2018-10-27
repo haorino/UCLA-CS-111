@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
     long long timePerOperation = runTime / numOfOperations;
     printf("add%s-%s,%d,%lld,%lld,%lld,%lld,%lld\n", yieldFlag ? "" : "-yield",
            lockType == 'n' ? "none" : lockType == 's' ? "s" : lockType == 'm' ? "m" : "c",
-           numOfThreads, numOfIterations, numOfOperations, runTime, timePerOperation, *sum);
+           numOfThreads, numOfIterations, numOfOperations, runTime, timePerOperation, counter);
 
     exit(0);
 
