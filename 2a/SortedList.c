@@ -2,6 +2,8 @@
 
 #include "SortedList.h"
 #include <stdlib.h>
+#include <string.h>
+
 /**
  * SortedList_insert ... insert an element into a sorted list
  *
@@ -30,7 +32,7 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element)
     }
 
     SortedListElement_t *currentElement = list;
-    while (currentElement->next != NULL)
+    while (currentElement->next != NULL && currentElement->next != list)
     {
         //If element's key is smaller than / equal tothe next element's key, then
         //insert it into the next position
@@ -128,9 +130,9 @@ int SortedList_length(SortedList_t *list)
         return -1;
     else
         size = 0;
-        
+
     //Loop through counting elements, as well as checking for corruption
-    while (currentElement->next != NULL)
+    while (currentElement->next != NULL && currentElement->next != list)
     {
         //Checking for corruption
         if (currentElement->next->prev != currentElement || currentElement->prev->next != currentElement)

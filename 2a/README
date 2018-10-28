@@ -3,53 +3,7 @@ EMAIL: sjoshi804@gmail.com
 ID: 105032378
 SLIPDAYS: 0
 
-lab0.c:
-This file is the main and only source file for the project.
-As specified, the getopt-long API is used for identifiying commandline options and arguments.
-POSIX calls (read, write, open, close, dup) are used for input, output redirection as well as reading
-and writing from the specified input to the specified output (stdin and stdout by default).
-The program exits with code 0 if it runs successfully.
-If the --segfault option is included then the program causes a segfault, which it handles on its own
-only if the --catch option is included as well (using a signal handler for SIGSEGV). If the segfault is handled
-by the program, it exits with code 4.
-If an unknown option is specified then the program exits with code 1.
-If an unreadable file is specified as the input file, the program exits with code 2.
-If an unwritable file is specified as the output file, the program exits with code 3.
 
-Makefile:
-default - compiles the program - creating an executable lab0
-
-clean - cleans the folder of all extraneous files and restores the folder to its freshly untarred state
- 
-dist - creates a tarball of the files with a .gz extension using the 'z' option. This requires
-all the required deliverables to be present to execute successfully. 
-
-check:
-There are 5 smoke test cases included, that are dependencies for the check target:
-ioTest:
-checks if input is correctly copied from input file to output file
-unknownArgTest:
-checks if correct exit code results from an unknown option
-faultyInputTest: 
-checks if correct exit code results from an unreadable input file
-faultyOutputTest:
-checks if correct exit code results from an unwritable output file
-segFaultTest:
-checks if correct exit code results from specifying the segfault option along with the catch option
-i.e. a segfault is raised and handled by a signal handler
-succesfulExitTest:
-Checks if correct exit code results from a successful execution of the program
-
--- if any of the above fail, the error report printed at the end - specifies which test failed - and 
-tries to explain why it might have.
 
 README: Explains all the files present in the project in some detail and lists out references used 
 for this project. 
-
-backtrace.png: Screenshots shows the stack trace at the point where the segmentation fault occurs.
-Only one function frame deep as segmentation fault is created in the main function itself. All the
-other variable values are also displayed using the gdb command 'bt full'
-
-breakpoint.png: Screenshot taken after putting a breakpoint in line 110 of lab0.c, which runs to the point just 
-before the segmentation fault occurs. Here, the value of the pointer is inspected and shown to be null
-to confirm that a segmentation fault will indeed occur. 

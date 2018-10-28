@@ -16,7 +16,7 @@ int yieldFlag;
 char lockType;
 long long counter;
 long long numOfIterations;
-pthread_mutex_t sumMutex;
+pthread_mutex_t sumMutex = PTHREAD_MUTEX_INITIALIZER;
 int spinLock;
 
 //Helper functions
@@ -48,13 +48,14 @@ void (*lockedAdd)(long long *pointer, long long value); //Function ptr different
 void mutexAdd(long long *pointer, long long value) //Using mutex
 {
     //Try to obtain the lock
-    if (pthread_mutex_lock(&sumMutex) != 0)
-        printErrorAndExit("locking mutex on sum", errno);
+    int status;
+    if ((status = pthread_mutex_lock(&sumMutex)) != 0)
+      printErrorAndExit("locking mutex on sum", status);
 
     add(pointer, value);
 
-    if (pthread_mutex_unlock(&sumMutex) != 0)
-        printErrorAndExit("unlocking mutex on sum", errno);
+    if ((status = pthread_mutex_unlock(&sumMutex)) != 0)
+        fprintf(stderr, "%d\n", status); //printErrorAndExit("unlocking mutex on sum", errno);
 }
 
 void spinAdd(long long *pointer, long long value) //Using custom spin lock
@@ -198,6 +199,4 @@ int main(int argc, char *argv[])
            numOfThreads, numOfIterations, numOfOperations, runTime, timePerOperation, counter);
 
     exit(0);
-
-    return 0;
 }
