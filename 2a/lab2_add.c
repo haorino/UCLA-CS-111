@@ -101,17 +101,13 @@ int main(int argc, char *argv[])
     lockType = 'n';
     counter = 0;
 
-   
-
     //Initializing options
     int option_index = 0;
     static struct option long_options[] = {
-        {"threads", required_argument, 0, 'i'},
-        {"iterations", required_argument, 0, 'o'},
-        {"yield", no_argument, 0, 'o'},
+        {"threads", required_argument, 0, 't'},
+        {"iterations", required_argument, 0, 'i'},
+        {"yield", no_argument, 0, 'y'},
         {"sync", required_argument, 0, 's'}};
-
-    
 
     while ((argsLeft = getopt_long(argc, argv, "t:i:s:", long_options, &option_index)) != -1)
     {
@@ -145,8 +141,6 @@ int main(int argc, char *argv[])
             printUsageAndExit(argv[0]);
         }
     }
-
-    
 
     //Initialize and allocate memory for array of pthreads
     pthread_t *pthreadsArray;
@@ -199,7 +193,7 @@ int main(int argc, char *argv[])
     //Print output
     long long numOfOperations = numOfIterations * numOfThreads * 2;
     long long timePerOperation = runTime / numOfOperations;
-    printf("add%s-%s,%d,%lld,%lld,%lld,%lld,%lld\n", yieldFlag ? "" : "-yield",
+    printf("add%s-%s,%d,%lld,%lld,%lld,%lld,%lld\n", yieldFlag ? "-yield" : "",
            lockType == 'n' ? "none" : lockType == 's' ? "s" : lockType == 'm' ? "m" : "c",
            numOfThreads, numOfIterations, numOfOperations, runTime, timePerOperation, counter);
 
