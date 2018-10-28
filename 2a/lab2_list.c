@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
             if (strlen(optarg) > 3)
                 printUsageAndExit(argv[0]);
             int i;
-            for (i = 0; i < strlen(optarg); i++)
+            for (i = 0; optarg[i] != '\0'; i++)
             {
                 if (optarg[i] == 'i')
                     opt_yield |= INSERT_YIELD;
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
     //Calculate total runs
     totalRuns = numOfIterations * numOfThreads;
     //Register signal handler
-    if (signal(SIGSEGV, signalHandler) < 0)
+    if (signal(SIGSEGV, signalHandler) == SIG_ERR)
         printErrorAndExit("registering signal handler", errno);
 
     //Initialize and allocate memory for array of pthreads and pthreadIDs

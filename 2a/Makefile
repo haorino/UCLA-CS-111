@@ -5,20 +5,23 @@
 default: build
 
 build: lab2_add.c lab2_list.c
-	gcc -g -Wall -Werror -pthread lab2_add.c -o lab2_add
-	gcc -pthread -g lab2_list.c SortedList.c -o lab2_list
+	gcc -g -Wall -Wextra -Werror -pthread lab2_add.c -o lab2_add
+	gcc -Wall -Wextra -Werror -pthread -g lab2_list.c SortedList.c -o lab2_list
 
 clean:	
-	rm -rf *.dSYM *~ *tar* lab2_add lab2_list *.o *.csv *.png
+	rm -rf lab2_list.csv lab2_add.csv lab2_add-1.png lab2_add-2.png lab2_add-3.png lab2_add-4.png lab2_add-5.png
+	rm -rf lab2_list-1.png lab2_list-2.png lab2_list-3.png lab2_list-4.png
+	rm -rf *tar* lab2_list lab2_add *.o *.dSYM DS_Store *~ 
 
-graph: allTests
+graphs: tests
+	set datafile separator ","
 	gnuplot lab2_add.gp
 	gnuplot lab2_list.gp
 
-dist: graph lab2_add.c lab2_list.c Makefile README SortedList.c SortedList.h
+dist: graphs lab2_add.c lab2_list.c Makefile README SortedList.c SortedList.h
 	tar -czf lab2a-105032378.tar.gz lab2_add.c lab2_list.c Makefile README SortedList.c SortedList.h *.png *.csv *.gp 
 
-allTests: clean build addTests listTests
+tests: clean build addTests listTests
 
 addTests: singleThreadAdd unprotectedAdd protectedAdd
 
@@ -124,114 +127,114 @@ singleThreadList:
 	./lab2_list --threads=1  --iterations=10000	      >> lab2_list.csv
 
 regular:
-	-./lab2_list --threads=2  --iterations=1              >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=10             >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=100            >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=1000           >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=1              >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=10             >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=100            >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=1000           >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=1              >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=10             >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=100            >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=1000           >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=1              >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=10             >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=100            >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=1000           >> lab2_list.csv 2>/dev/null
+	-./lab2_list --threads=2  --iterations=1              >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=10             >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=100            >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=1000           >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=1              >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=10             >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=100            >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=1000           >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=1              >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=10             >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=100            >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=1000           >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=1              >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=10             >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=100            >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=1000           >> lab2_list.csv 2>/dev/null 
 
 yieldI:
-	-./lab2_list --threads=2  --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=32  --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null
+	-./lab2_list --threads=2  --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=32  --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=1   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=2   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=4   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=8   --yield=i  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=16  --yield=i  >> lab2_list.csv 2>/dev/null 
 
 yieldD:
-	-./lab2_list --threads=2  --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=32  --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null
+	-./lab2_list --threads=2  --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=32  --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=1   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=2   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=4   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=8   --yield=d  >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=16  --yield=d  >> lab2_list.csv 2>/dev/null 
 
 yieldIL:
-	-./lab2_list --threads=2  --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=32  --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null
+	-./lab2_list --threads=2  --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=32  --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=1   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=2   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=4   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=8   --yield=il >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=16  --yield=il >> lab2_list.csv 2>/dev/null 
 
 yieldDL:
-	-./lab2_list --threads=2  --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=2  --iterations=32  --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=4  --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=8  --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null
-	-./lab2_list --threads=12 --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null
+	-./lab2_list --threads=2  --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=2  --iterations=32  --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=4  --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=8  --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=1   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=2   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=4   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=8   --yield=dl >> lab2_list.csv 2>/dev/null 
+	-./lab2_list --threads=12 --iterations=16  --yield=dl >> lab2_list.csv 2>/dev/null 
 
 protectedList:
 	./lab2_list --threads=12 --iterations=32 --yield=i  --sync=m >> lab2_list.csv
