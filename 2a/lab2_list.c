@@ -44,27 +44,6 @@ void printUsageAndExit(char *argv0)
     exit(1);
 }
 
-void determineYieldPrint(char *yieldPrint)
-{
-    if (opt_yield == 0)
-        yieldPrint = "none";
-    else if ((opt_yield & INSERT_YIELD) && (opt_yield & DELETE_YIELD) && (opt_yield & LOOKUP_YIELD))
-        yieldPrint = "idl";
-    else if ((opt_yield & INSERT_YIELD) && (opt_yield & DELETE_YIELD))
-        yieldPrint = "id";
-    else if ((opt_yield & INSERT_YIELD) && (opt_yield & LOOKUP_YIELD))
-        yieldPrint = "il";
-    else if ((opt_yield & DELETE_YIELD) && (opt_yield & LOOKUP_YIELD))
-        yieldPrint = "dl";
-    else if (opt_yield & INSERT_YIELD)
-        yieldPrint = "i";
-    else if (opt_yield & DELETE_YIELD)
-        yieldPrint = "d";
-    else
-        yieldPrint = "l";
-    return;
-}
-
 void generateRandomKeys(SortedListElement_t *elementsArray)
 {
     srand(time(NULL) + 123);
@@ -364,10 +343,28 @@ int main(int argc, char *argv[])
     //Print output
     //Determining the yield string
     char *yieldPrint;
-    determineYieldPrint(yieldPrint);
+    if (opt_yield == 0)
+        yieldPrint = "none";
+    else if ((opt_yield & INSERT_YIELD) && (opt_yield & DELETE_YIELD) && (opt_yield & LOOKUP_YIELD))
+        yieldPrint = "idl";
+    else if ((opt_yield & INSERT_YIELD) && (opt_yield & DELETE_YIELD))
+        yieldPrint = "id";
+    else if ((opt_yield & INSERT_YIELD) && (opt_yield & LOOKUP_YIELD))
+        yieldPrint = "il";
+    else if ((opt_yield & DELETE_YIELD) && (opt_yield & LOOKUP_YIELD))
+        yieldPrint = "dl";
+    else if (opt_yield & INSERT_YIELD)
+        yieldPrint = "i";
+    else if (opt_yield & DELETE_YIELD)
+        yieldPrint = "d";
+    else
+        yieldPrint = "l";
 
+    //Final calculations
     long long numOfOperations = totalRuns * 3;
     long long timePerOperation = runTime / numOfOperations;
+
+    //Actual output
     printf("list-%s-%s,%d,%lld,%d,%lld,%lld,%lld\n", yieldPrint,
            lockType == 'n' ? "none" : lockType == 's' ? "s" : "m",
            numOfThreads, numOfIterations, 1, numOfOperations, runTime, timePerOperation);
