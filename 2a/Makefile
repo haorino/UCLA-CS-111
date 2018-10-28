@@ -24,4 +24,3 @@ tests: clean build
 	./lab2_list --threads=1  --iterations=1000	      >> lab2_list.csv
 	./lab2_list --threads=1  --iterations=10000	      >> lab2_list.csv
 	./lab2_list --threads=1  --iterations=20000	      >> lab2_list.csv
-	
