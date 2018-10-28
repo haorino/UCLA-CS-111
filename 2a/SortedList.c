@@ -23,21 +23,12 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element)
         return;
     }
 
-    //Else if the the head->key is larger than that of element
-    else if (list->key != NULL && strcmp(list->key, element->key) >= 0)
-    {
-        element->next = list;
-        list->prev = element;
-        list = element;
-        return;
-    }
-
     SortedListElement_t *currentElement = list;
     while (currentElement->next != NULL && currentElement->next != list)
     {
         //If element's key is smaller than / equal tothe next element's key, then
         //insert it into the next position
-        if (strcmp(currentElement->next->key, element->key) >= 0)
+        if (currentElement->next->key != NULL && strcmp(currentElement->next->key, element->key) >= 0)
         {
             element->next = currentElement->next;
             element->prev = currentElement;
@@ -45,8 +36,8 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element)
             currentElement->next = element;
             return;
         }
-	else
-	  currentElement = currentElement->next;
+        else
+            currentElement = currentElement->next;
     }
 
     //Element-> key is the largest value in the list, add it to the end
@@ -103,7 +94,7 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key)
     if (key == NULL)
         return NULL;
 
-    SortedListElement_t* currentElement = list->next;
+    SortedListElement_t *currentElement = list->next;
 
     while (currentElement != NULL && currentElement != list)
     {
@@ -129,7 +120,7 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key)
 int SortedList_length(SortedList_t *list)
 {
     int size;
-    SortedListElement_t* currentElement = list;
+    SortedListElement_t *currentElement = list;
 
     //Check if list is empty
     if (currentElement == NULL)
@@ -143,7 +134,7 @@ int SortedList_length(SortedList_t *list)
         //Checking for corruption
         if (currentElement->next->prev != currentElement || currentElement->prev->next != currentElement)
             return -1;
-        
+
         //Increment size as currentElement->next is not NULL so 1 more element
         ++size;
 
