@@ -100,7 +100,7 @@ void *listOpsRegular(void *threadID)
     int i;
 
     //Insertion
-    for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
+    for (i = *(int *) threadID; i < totalRuns; i += numOfThreads)
         SortedList_insert(list, elementsArray + i);
 
     //Check Length
@@ -117,6 +117,8 @@ void *listOpsRegular(void *threadID)
         if (SortedList_delete(currentElement) != 0)
             listCorruptedExit("SortList_delete");
     }
+   
+
     return NULL;
 }
 
@@ -297,8 +299,8 @@ int main(int argc, char *argv[])
     //Initialize and allocate memory for array of pthreads and pthreadIDs
     pthread_t *pthreadsArray;
     pthreadsArray = malloc(numOfThreads * sizeof(pthread_t));
-    int *pthreadIDs;
-    for (int i = 0; i < numOfThreads; i++)
+    int *pthreadIDs = malloc(numOfThreads * sizeof(int));
+    for (i = 0; i < numOfThreads; i++)
         pthreadIDs[i] = i;
 
     //Initialize circular doubly linked list
@@ -344,7 +346,7 @@ int main(int argc, char *argv[])
 
     //Check if length == 0 (expected as all inserted elements have been removed)
     if (SortedList_length(list) < 0)
-        listCorruptedExit("SortedList_length");
+      printf("%d\n", SortedList_length(list));
 
     //Calculate time taken for process
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime) < 0)
@@ -354,9 +356,10 @@ int main(int argc, char *argv[])
 
     //Free memory
     free(pthreadsArray);
-    free(elementsArray);
-    free(pthreadIDs);
-    free(list);
+        free(elementsArray);
+       free(pthreadIDs);
+        free(list);
+
 
     //Print output
     //Determining the yield string

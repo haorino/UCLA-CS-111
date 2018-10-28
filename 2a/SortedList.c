@@ -22,8 +22,9 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element)
         list = element;
         return;
     }
+
     //Else if the the head->key is larger than that of element
-    else if (strcmp(list->key, element->key) >= 0)
+    else if (list->key != NULL && strcmp(list->key, element->key) >= 0)
     {
         element->next = list;
         list->prev = element;
@@ -44,11 +45,15 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element)
             currentElement->next = element;
             return;
         }
+	else
+	  currentElement = currentElement->next;
     }
 
     //Element-> key is the largest value in the list, add it to the end
     currentElement->next = element;
     element->prev = currentElement;
+    element->next = list;
+    list->prev = element;
     return;
 }
 
@@ -98,10 +103,11 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key)
     if (key == NULL)
         return NULL;
 
-    SortedListElement_t *currentElement = list;
-    while (currentElement != NULL && currentElement->next != list)
+    SortedListElement_t* currentElement = list->next;
+
+    while (currentElement != NULL && currentElement != list)
     {
-        if (strcmp(currentElement->key, key) == 0)
+        if (currentElement->key != NULL && strcmp(currentElement->key, key) == 0)
             return currentElement;
         else
             currentElement = currentElement->next;
