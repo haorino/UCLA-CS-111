@@ -302,6 +302,10 @@ int main(int argc, char *argv[])
         listOpsGeneral = &listOpsRegular;
         break;
     }
+    
+    //Initialize Mutex
+    if (pthread_mutex_init(&mutexLockforListOps, NULL) != 0)
+        printErrorAndExit("initializing mutex", errno);
 
     //Initialize timer
     struct timespec startTime, endTime;
@@ -322,6 +326,10 @@ int main(int argc, char *argv[])
             printErrorAndExit("joining pthread", errno);
     }
 
+    //Destroy mutex
+    if (pthread_mutex_destroy(&mutexLockForListOps) != 0)
+        printErrorAndExit("destroying mutex", errno);
+        
     //Check if length == 0 (expected as all inserted elements have been removed)
     if (SortedList_length(list) < 0)
         printf("%d\n", SortedList_length(list));
