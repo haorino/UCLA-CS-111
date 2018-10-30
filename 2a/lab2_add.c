@@ -16,7 +16,7 @@ int yieldFlag;
 char lockType;
 long long counter;
 long long numOfIterations;
-pthread_mutex_t sumMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t sumMutex;
 int spinLock;
 
 //Helper functions
@@ -163,6 +163,10 @@ int main(int argc, char *argv[])
         lockedAdd = &add;
     }
 
+    //Initialize mutex
+    if (mutex_lock_init(&sumMutex, NULL) != 0)
+        printErrorAndExit("initializing mutex", errno);
+    
     //Initialize timer
     struct timespec startTime, endTime;
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime) < 0)
@@ -187,7 +191,11 @@ int main(int argc, char *argv[])
         printErrorAndExit("getting end time", errno);
     long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L +
                         (endTime.tv_nsec - startTime.tv_nsec);
-
+    
+    //Destroying mutex
+    if (mutex_lock_destroy(&sumMutex) != 0)
+        printErrorAndExit("destroying mutex", errno);
+    
     //Free memory
     free(pthreadsArray);
 
