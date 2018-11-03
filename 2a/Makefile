@@ -9,8 +9,6 @@ build: lab2_add.c lab2_list.c
 	gcc -Wall -Wextra -Werror -pthread -g lab2_list.c SortedList.c -o lab2_list
 
 clean:	
-	rm -rf lab2_list.csv lab2_add.csv lab2_add-1.png lab2_add-2.png lab2_add-3.png lab2_add-4.png lab2_add-5.png
-	rm -rf lab2_list-1.png lab2_list-2.png lab2_list-3.png lab2_list-4.png
 	rm -rf *tar* lab2_list lab2_add *.o *.dSYM DS_Store *~ 
 
 graphs: tests

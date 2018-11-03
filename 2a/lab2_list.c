@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
     }
     
     //Initialize Mutex
-    if (pthread_mutex_init(&mutexLockforListOps, NULL) != 0)
+    if (pthread_mutex_init(&mutexLockForListOps, NULL) != 0)
         printErrorAndExit("initializing mutex", errno);
 
     //Initialize timer

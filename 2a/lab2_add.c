@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     }
 
     //Initialize mutex
-    if (mutex_lock_init(&sumMutex, NULL) != 0)
+    if (pthread_mutex_init(&sumMutex, NULL) != 0)
         printErrorAndExit("initializing mutex", errno);
     
     //Initialize timer
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
                         (endTime.tv_nsec - startTime.tv_nsec);
     
     //Destroying mutex
-    if (mutex_lock_destroy(&sumMutex) != 0)
+    if (pthread_mutex_destroy(&sumMutex) != 0)
         printErrorAndExit("destroying mutex", errno);
     
     //Free memory
