@@ -3,7 +3,107 @@ EMAIL: sjoshi804@gmail.com
 ID: 105032378
 SLIPDAYS: 0
 
+QUESTIONS & ANSWERS:
+
+QUESTION 2.1.1 - causing conflicts:
+Why does it take many iterations before errors are seen?
+Why does a significantly smaller number of iterations so seldom fail?
+
+Ans. The errors occur when two or more threads enter the add() function at the same time.
+This is far less likely with fewer iterations, hence it takes a lot of iterations for the errors to show up 
+consistently, and with fewer iterations there is often no error at all.
+
+QUESTION 2.1.2 - cost of yielding:
+Why are the --yield runs so much slower?
+Where is the additional time going?
+Is it possible to get valid per-operation timings if we are using the --yield option?
+If so, explain how. If not, explain why not.
+
+Ans. The yield option runs are slower as they call sched_yield() and this results in more context switches than necessary,
+adding unnecessary overhead - resulting in additional time being spent doing these switches. It is thereotically possible
+to get the valid per-operation timings while using the yield option, but this would require accurately measuring the time
+taken to context switch (and measurement of such a time would in itself require a context switch - if it is to be done
+on the same machine). In reality, it's impossible to actually get the precise time lost due to the overhead of sched_yield()
+Moreover, the yield option would still take longer, as the manual yields result in avoiding the use of the pthread library
+scheduler and hence may not exploit the fullest potential of the cache.
+
+QUESTION 2.1.3 - measurement errors:
+Why does the average cost per operation drop with increasing iterations?
+If the cost per iteration is a function of the number of iterations, 
+how do we know how many iterations to run (or what the "correct" cost is)?
+
+Ans. The average cost per operation drops with increasing iterations as the constant overhead of creating the threads, 
+joining the threads etc. is now split over a larger number of iterations -> thus reducing the mean cost. The correct cost
+is dependent entirely on the add() function, and hence running as many iterations as feasible would give the most accurate
+per operation cost. 
 
 
-README: Explains all the files present in the project in some detail and lists out references used 
-for this project. 
+QUESTION 2.1.4 - costs of serialization:
+Why do all of the options perform similarly for low numbers of threads?
+Why do the three protected operations slow down as the number of threads rises?
+
+Ans. The operations perform similarly for low number of threads, as they are fewer contentions for the same resources (the counter
+variable) as compared to what would have been with more threads. Due to the fewer contentions, a convoy is less likely to perform
+and threads don't spend as much time waiting for the resource as they would if a convoy had formed due to many threads waiting
+to execute the critical section. By adding only few threads, the odds of contention don't rise significantly, hence the bottle-
+neck doesn't really worsen, and hence performance remains relatively the same. 
+In the case with few threads and the short critical section, even the usually inefficient spin lock fares well performance-wise. 
+The three protected operations significantly slow down execution as they ensure that only one thread executes the critical section
+at a time, causing all the other threads to wait whenever another thread is executing the critical section. Since they are all
+competing for the same resource, a convoy forms and all parallelism is lost. 
+
+QUESTION 2.2.1 - scalability of Mutex
+Compare the variation in time per mutex-protected operation vs the number of threads in Part-1 (adds) and Part-2 (sorted lists).
+Comment on the general shapes of the curves, and explain why they have this shape.
+Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for these differences.
+
+Ans. The variation in time per mutex-protected operations in part 1 and part 2 increases approximately linearly with time.
+The adds have the time increase rapidly at first but eventually the slope flattens out (while remaining linear all the while). 
+The slowing down (increase in time) is perhaps due to the increased contention for the mutex, adding the overhead of 
+obtaining and releasing the mutex. List ops slope remains constant throughout. This is due to the fact that list ops 
+are more cpu intensive than addition and hence the overhead of the mutex is way more costly than the contention of it. 
+
+QUESTION 2.2.2 - scalability of spin locks
+Compare the variation in time per protected operation vs the number of threads for list operations protected by Mutex 
+vs Spin locks. Comment on the general shapes of the curves, and explain why they have this shape.
+Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for 
+these differences.
+
+Ans. Larger number of threads, cost spinlocks to be more costly since there is greater contention for the resource,
+and hence more threads spend their time slice uselessly spinning and do so for longer as well. Right after 2 threads,
+it's easy to see that spin locks overhead time increases faster than that of mutexes. 
+The rate of increase for both spin locks and mutexes are roughly linear, but spin locks have a much larger slope.
+Mutexes ability to allow threads to sleep and be woken up, allows for the time slices spent spinning while using 
+spin locks to be conserved (and the overhead for the sleeping and waking up seems to not affect the timing that much). 
+A spin lock hence is evident to be useful with low levels of contentions in scenarios with short critical sections, but
+not in other cases due to the time spent uselessly spinning while waiting. 
+
+FILE DESCRIPTIONS:
+lab2a_add.c: Locked and unlocked adding to a counter variable demonstrating use of multithreading
+
+lab2a_list.c: Driver for SortedList.c - does list operations without 
+
+SortedList.c: Implementation of function prototypes mentioned in SortedList.h
+
+SortedList.h: Interface for Sorted List (provided w/o implementation in specifications)
+
+Makefile: provides functionality to build, test, graph and tar the files for distribution
+build/default: compiles the files
+tests: runs tests and logs them in 'csv's
+graphs: creates graphs from the tests using GNU plot and the scripts given in project specifications 
+dist: tars all files for distribution
+default - compiles the files
+tests - runs tests
+
+*.gp: Scripts to plot the data
+
+*.csv: Data obtained by running tests (make tests)
+
+*.png: The graphs generated
+
+README: Explains features of the projects, answers questions and cites references. 
+
+REFERENCES:
+https://computing.llnl.gov/tutorials/pthreads/
+http://man7.org/linux/man-pages/man2/clock_gettime.2.html
+https://gcc.gnu.org/onlinedocs/gcc-4.4.3/gcc/Atomic-Builtins.html
