@@ -330,8 +330,8 @@ int main(int argc, char *argv[])
 
     //Initialize Dynamic Array of List Ptrs (i.e. an open Hash Table)
     //Allocate memory
-    hashTable = malloc(numOfLists * sizeof(SortedListElement_t));
-    mutexesLockForListOps = malloc(numOfLists * sizeof(pthread_mutex_lock));
+    hashTable = calloc(numOfLists, sizeof(SortedListElement_t));
+    mutexesLockForListOps = calloc(numOfLists, sizeof(pthread_mutex_lock));
     spinLocks = malloc(numOfLists * sizeof(int));
     //Initialize values
     for (i = 0; i < numOfLists; i++)
