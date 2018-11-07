@@ -411,13 +411,6 @@ int main(int argc, char *argv[])
             printErrorAndExit("joining pthread", errno);
     }
 
-    //Destroy mutexes
-    for (i = 0; i < numOfLists; i++)
-    {
-        if (pthread_mutex_destroy(&mutexLocksForListOps[i]) != 0)
-            printErrorAndExit("destroying mutex", errno);
-    }
-
     //Get end time
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime) < 0)
         printErrorAndExit("getting end time", errno);
@@ -426,6 +419,13 @@ int main(int argc, char *argv[])
     //Calculate time taken for process
     long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L +
                         (endTime.tv_nsec - startTime.tv_nsec);
+
+    //Destroy mutexes
+    for (i = 0; i < numOfLists; i++)
+    {
+        if (pthread_mutex_destroy(&mutexLocksForListOps[i]) != 0)
+            printErrorAndExit("destroying mutex", errno);
+    }
 
     //Calculating total lock time for all threads
     long long totalLockTimeNsecs = 0;
