@@ -51,7 +51,7 @@ void timedLock(pthread_mutex_t *mutex, int *spinLock, void *threadID)
 {
     //Initialize timer
     struct timespec startTime, endTime;
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime) < 0)
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
         printErrorAndExit("getting start time", errno);
 
     //Obtain lock
@@ -66,12 +66,12 @@ void timedLock(pthread_mutex_t *mutex, int *spinLock, void *threadID)
     }
 
     //Get end time
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime) < 0)
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
         printErrorAndExit("getting end time", errno);
 
     //Add to total time for locking for this thread
-    totalLockTime[*(int *)threadID].tv_sec = startTime.tv_sec - endTime.tv_sec;
-    totalLockTime[*(int *)threadID].tv_nsec = startTime.tv_nsec - endTime.tv_nsec;
+    totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+    totalLockTime[*(int *)threadID].tv_nsec += endTime.tv_nsec - startTime.tv_nsec;
 
     return;
 }
@@ -471,7 +471,7 @@ int main(int argc, char *argv[])
     long long lockTimePerOperation = totalLockTimeNsecs / numOfOperations;
 
     //Actual output
-    printf("list-%s-%s,%d,%lld,%d,%lld,%lld,%lld,%ldd\n", yieldPrint,
+    printf("list-%s-%s,%d,%lld,%d,%lld,%lld,%lld,%lld\n", yieldPrint,
            lockType == 'n' ? "none" : lockType == 's' ? "s" : "m",
            numOfThreads, numOfIterations, numOfLists, numOfOperations, runTime, timePerOperation, lockTimePerOperation);
 
