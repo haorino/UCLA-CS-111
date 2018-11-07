@@ -21,6 +21,7 @@ pthread_mutex_t *mutexesLockForListOps;
 int *spinLocks;
 SortedListElement_t *elementsArray;
 SortedList_t **hashTable;
+int* hashOfElement;
 int totalRuns;
 int opt_yield;
 int numOfLists;
@@ -60,20 +61,26 @@ void generateRandomKeys(SortedListElement_t *elementsArray)
         }
         newKey[length] = '\0';
         elementsArray[i].key = newKey;
+	hashForElement[i] = hash(newKey);
     }
     return;
 }
 
-//Implementing Robert Jenking's 32 bit integer hash function
-uint32_t hash(uint32_t key)
+//Implementing Robert Jenking's One At A Time Hash Function 
+unsigned long  hash(const char*  key)
 {
-   key = (key + 0x7ed55d16) + (key << 12);
-   key = (key ^ 0xc761c23c) ^ (key >> 19);
-   key = (key + 0x165667b1) + (key << 5);
-   key = (key + 0xd3a2646c) ^ (key << 9);
-   key = (key + 0xfd7046c5) + (key << 3);
-   key = (key ^ 0xb55a4f09) ^ (key >> 16);
-   return key ;
+  size_t i = 0;
+  unsigned long hash = 0;
+  size_t length = strlen(key);
+  while (i != length) {
+    hash += key[i++];
+    hash += hash << 10;
+    hash ^= hash >> 6;
+  }
+  hash += hash << 3;
+  hash ^= hash >> 11;
+  hash += hash << 15;
+  return hash;
 }
 
 //Signal handler for segfault
