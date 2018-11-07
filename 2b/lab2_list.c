@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
         pthreadIDs[i] = i;
 
     //Initialize array of elements
-    elementsArray = malloc(totalRuns * sizeof(SortedListElement_t));
+    elementsArray = malloc(totalRuns * sizeof(int*));
     hashOfElement = malloc(totalRuns * sizeof(unsigned long));
     generateRandomKeys(elementsArray);
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 
     //Initialize Dynamic Array of List Ptrs (i.e. an open Hash Table)
     //Allocate memory
-    hashTable = malloc(numOfLists * sizeof(SortedListElement_t *));
+    hashTable = malloc(numOfLists * sizeof(SortedListElement_t));
     mutexesLockForListOps = malloc(numOfLists * sizeof(pthread_mutex_lock));
     spinLocks = malloc(numOfLists * sizeof(int));
     //Initialize values
