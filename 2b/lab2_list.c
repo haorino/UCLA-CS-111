@@ -60,7 +60,7 @@ unsigned long  hash(const char*  key)
   hash += hash << 3;
   hash ^= hash >> 11;
   hash += hash << 15;
-  return hash;
+  return hash % numOfLists;
 }
 
 void generateRandomKeys(SortedListElement_t *elementsArray)
