@@ -141,11 +141,11 @@ void *listOpsMutex(void *threadID)
     //Check Length
 
     //Obtain lock
-    pthread_mutex_lock(&mutexLocksForListOps[hashOfElement[i]]);
+    //    pthread_mutex_lock(&mutexLocksForListOps[hashOfElement[i]]);
     //Get length
    // int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
-    pthread_mutex_unlock(&mutexLocksForListOps[hashOfElement[i]]);
+    //    pthread_mutex_unlock(&mutexLocksForListOps[hashOfElement[i]]);
 
   //  if (length == -1)
        // listCorruptedExit("SortedList_length");
@@ -193,12 +193,12 @@ void *listOpsSpinLock(void *threadID)
     //Check Length
 
     //Obtain lock
-    while (__sync_lock_test_and_set(&spinLocks[hashOfElement[i]], 1) == 1)
-        ; //Spin
+    //    while (__sync_lock_test_and_set(&spinLocks[hashOfElement[i]], 1) == 1)
+    //  ; //Spin
     //Get length
    // int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
-    __sync_lock_release(&spinLocks[hashOfElement[i]]);
+    //    __sync_lock_release(&spinLocks[hashOfElement[i]]);
 
   //  if (length == -1)
     //    listCorruptedExit("SortedList_length");
