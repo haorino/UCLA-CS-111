@@ -17,12 +17,13 @@
 char lockType;
 long long numOfIterations;
 int numOfThreads;
-pthread_mutex_t mutexLockForListOps;
-int spinLock = 0;
+pthread_mutex_t *mutexesLockForListOps;
+int *spinLocks;
 SortedListElement_t *elementsArray;
-SortedList_t *list;
+SortedList_t **hashTable;
 int totalRuns;
 int opt_yield;
+int numOfLists;
 
 //Helper functions
 void printErrorAndExit(const char *errorMsg, int errorNum)
@@ -63,6 +64,18 @@ void generateRandomKeys(SortedListElement_t *elementsArray)
     return;
 }
 
+//Implementing Robert Jenking's 32 bit integer hash function
+uint32_t hash(uint32_t key)
+{
+   key = (key + 0x7ed55d16) + (key << 12);
+   key = (key ^ 0xc761c23c) ^ (key >> 19);
+   key = (key + 0x165667b1) + (key << 5);
+   key = (key + 0xd3a2646c) ^ (key << 9);
+   key = (key + 0xfd7046c5) + (key << 3);
+   key = (key ^ 0xb55a4f09) ^ (key >> 16);
+   return key ;
+}
+
 //Signal handler for segfault
 void signalHandler(int sigNum)
 {
@@ -77,19 +90,18 @@ void *(*listOpsGeneral)(void *threadID); //Function ptr for different sync mecha
 void *listOpsRegular(void *threadID)
 {
     int i;
-    
     //Insertion
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
-        SortedList_insert(list, elementsArray + i);
+        SortedList_insert(hashTable[hash(i)], elementsArray + i);
 
     //Check Length
-    if (SortedList_length(list) == -1)
+    if (SortedList_length(hashTable[hash(i)]) == -1)
         listCorruptedExit("SortedList_length");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
-        SortedListElement_t *currentElement = SortedList_lookup(list, elementsArray[i].key);
+        SortedListElement_t *currentElement = SortedList_lookup(hashTable[hash(i)], elementsArray[i].key);
         if (currentElement == NULL)
             listCorruptedExit("SortedList_lookup");
 
@@ -104,28 +116,27 @@ void *listOpsRegular(void *threadID)
 void *listOpsMutex(void *threadID)
 {
     int i;
-
     //Insertion
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
         //Obtain lock
-        pthread_mutex_lock(&mutexLockForListOps);
+        pthread_mutex_lock(&mutexesLockForListOps[hash(i)]);
 
         //Insert element
-        SortedList_insert(list, elementsArray + i);
+        SortedList_insert(hashTable[hash(i)], elementsArray + i);
 
         //Release lock
-        pthread_mutex_unlock(&mutexLockForListOps);
+        pthread_mutex_unlock(&mutexesLockForListOps[hash(i)]);
     }
 
     //Check Length
 
     //Obtain lock
-    pthread_mutex_lock(&mutexLockForListOps);
+    pthread_mutex_lock(&mutexesLockForListOps[hash(i)]);
     //Get length
-    int length = SortedList_length(list);
+    int length = SortedList_length(hashTable[hash(i)]);
     //Release Lock
-    pthread_mutex_unlock(&mutexLockForListOps);
+    pthread_mutex_unlock(&mutexesLockForListOps[hash(i)]);
 
     if (length == -1)
         listCorruptedExit("SortedList_length");
@@ -134,10 +145,10 @@ void *listOpsMutex(void *threadID)
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
         //Obtain lock
-        pthread_mutex_lock(&mutexLockForListOps);
+        pthread_mutex_lock(&mutexesLockForListOps[hash(i)]);
 
         //Lookup
-        SortedListElement_t *currentElement = SortedList_lookup(list, elementsArray[i].key);
+        SortedListElement_t *currentElement = SortedList_lookup(hashTable[hash(i)], elementsArray[i].key);
         if (currentElement == NULL)
             listCorruptedExit("SortedList_lookup");
 
@@ -146,7 +157,7 @@ void *listOpsMutex(void *threadID)
             listCorruptedExit("SortList_delete");
 
         //Release lock
-        pthread_mutex_unlock(&mutexLockForListOps);
+        pthread_mutex_unlock(&mutexesLockForListOps[hash(i)]);
     }
     return NULL;
 }
@@ -160,25 +171,25 @@ void *listOpsSpinLock(void *threadID)
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
         //Obtain lock
-        while (__sync_lock_test_and_set(&spinLock, 1) == 1)
+        while (__sync_lock_test_and_set(&spinLocks[hash(i)], 1) == 1)
             ; //Spin
 
         //Insert element
-        SortedList_insert(list, elementsArray + i);
+        SortedList_insert(hashTable[hash(i)], elementsArray + i);
 
         //Release lock
-        __sync_lock_release(&spinLock);
+        __sync_lock_release(&spinLocks[hash(i)]);
     }
 
     //Check Length
 
     //Obtain lock
-    while (__sync_lock_test_and_set(&spinLock, 1) == 1)
+    while (__sync_lock_test_and_set(&spinLocks[hash(i)], 1) == 1)
         ; //Spin
     //Get length
-    int length = SortedList_length(list);
+    int length = SortedList_length(hashTable[hash(i)]);
     //Release Lock
-    __sync_lock_release(&spinLock);
+    __sync_lock_release(&spinLocks[hash(i)]);
 
     if (length == -1)
         listCorruptedExit("SortedList_length");
@@ -187,11 +198,11 @@ void *listOpsSpinLock(void *threadID)
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
         //Obtain lock
-        while (__sync_lock_test_and_set(&spinLock, 1) == 1)
+        while (__sync_lock_test_and_set(&spinLocks[hash(i)], 1) == 1)
             ; //Spin
 
         //Lookup
-        SortedListElement_t *currentElement = SortedList_lookup(list, elementsArray[i].key);
+        SortedListElement_t *currentElement = SortedList_lookup(hashTable[hash(i)], elementsArray[i].key);
         if (currentElement == NULL)
             listCorruptedExit("SortedList_lookup");
 
@@ -200,11 +211,12 @@ void *listOpsSpinLock(void *threadID)
             listCorruptedExit("SortList_delete");
 
         //Release lock
-        __sync_lock_release(&spinLock);
+        __sync_lock_release(&spinLocks[hash(i)]);
     }
     return NULL;
 }
 
+//Main function
 int main(int argc, char *argv[])
 {
     // Initializing variables
@@ -213,6 +225,7 @@ int main(int argc, char *argv[])
     numOfIterations = 1;
     opt_yield = 0;
     lockType = 'n';
+    numOfLists = 1;
 
     //Initializing options
     int option_index = 0;
@@ -220,7 +233,9 @@ int main(int argc, char *argv[])
         {"threads", required_argument, 0, 't'},
         {"iterations", required_argument, 0, 'i'},
         {"yield", required_argument, 0, 'y'},
-        {"sync", required_argument, 0, 's'}};
+        {"sync", required_argument, 0, 's'},
+        {"lists", required_argument, 0, 'l'},
+    };
 
     while ((argsLeft = getopt_long(argc, argv, "t:i:s:", long_options, &option_index)) != -1)
     {
@@ -263,6 +278,10 @@ int main(int argc, char *argv[])
                 lockType = optarg[0];
             break;
 
+        case 'l':
+            numOfLists = atoi(optarg);
+            break;
+
         default:
             printUsageAndExit(argv[0]);
         }
@@ -281,10 +300,6 @@ int main(int argc, char *argv[])
     for (i = 0; i < numOfThreads; i++)
         pthreadIDs[i] = i;
 
-    //Initialize circular doubly linked list
-    list = malloc(sizeof(SortedList_t));
-    list->next = list->prev = list;
-
     //Initialize array of elements
     elementsArray = malloc(totalRuns * sizeof(SortedListElement_t));
     generateRandomKeys(elementsArray);
@@ -302,10 +317,26 @@ int main(int argc, char *argv[])
         listOpsGeneral = &listOpsRegular;
         break;
     }
-    
-    //Initialize Mutex
-    if (pthread_mutex_init(&mutexLockForListOps, NULL) != 0)
-        printErrorAndExit("initializing mutex", errno);
+
+    //Initialize Dynamic Array of List Ptrs (i.e. an open Hash Table)
+    //Allocate memory
+    hashTable = malloc(numOfLists * sizeof(SortedListElement_t *));
+    mutexesLockForListOps = malloc(numOfLists * sizeof(pthread_mutex_lock));
+    spinLocks = malloc(numOfLists * sizeof(int));
+    //Initialize values
+    for (i = 0; i < numOfLists; i++)
+    {
+        //Initialize circular doubly linked list
+        hashTable[i] = malloc(sizeof(SortedList_t));
+        hashTable[i]->next = hashTable[i]->prev = hashTable[i];
+
+        //Initialize mutex
+        if (pthread_mutex_init(&mutexesLockForListOps[i], NULL) != 0)
+            printErrorAndExit("initializing mutex", errno);
+
+        //Initialize spinLock
+        spinLocks[i] = 0;
+    }
 
     //Initialize timer
     struct timespec startTime, endTime;
@@ -326,13 +357,12 @@ int main(int argc, char *argv[])
             printErrorAndExit("joining pthread", errno);
     }
 
-    //Destroy mutex
-    if (pthread_mutex_destroy(&mutexLockForListOps) != 0)
-        printErrorAndExit("destroying mutex", errno);
-        
-    //Check if length == 0 (expected as all inserted elements have been removed)
-    if (SortedList_length(list) < 0)
-        printf("%d\n", SortedList_length(list));
+    //Destroy mutexes
+    for (i = 0; i < numOfLists; i++)
+    {
+        if (pthread_mutex_destroy(&mutexesLockForListOps[i]) != 0)
+            printErrorAndExit("destroying mutex", errno);
+    }
 
     //Calculate time taken for process
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime) < 0)
@@ -344,7 +374,11 @@ int main(int argc, char *argv[])
     free(pthreadsArray);
     free(elementsArray);
     free(pthreadIDs);
-    free(list);
+    for (i = 0; i < numOfLists; i++)
+        free(hashTable[i]);
+    free(hashTable);
+    free(mutexesLockForListOps);
+    free(spinLocks);
 
     //Print output
     //Determining the yield string
@@ -373,7 +407,7 @@ int main(int argc, char *argv[])
     //Actual output
     printf("list-%s-%s,%d,%lld,%d,%lld,%lld,%lld\n", yieldPrint,
            lockType == 'n' ? "none" : lockType == 's' ? "s" : "m",
-           numOfThreads, numOfIterations, 1, numOfOperations, runTime, timePerOperation);
+           numOfThreads, numOfIterations, numOfLists, numOfOperations, runTime, timePerOperation);
 
     exit(0);
 }
