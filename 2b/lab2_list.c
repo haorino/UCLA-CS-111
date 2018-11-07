@@ -21,7 +21,7 @@ pthread_mutex_t *mutexesLockForListOps;
 int *spinLocks;
 SortedListElement_t *elementsArray;
 SortedList_t **hashTable;
-int* hashOfElement;
+long* hashOfElement;
 int totalRuns;
 int opt_yield;
 int numOfLists;
@@ -46,6 +46,23 @@ void printUsageAndExit(char *argv0)
     exit(1);
 }
 
+//Implementing Robert Jenking's One At A Time Hash Function 
+unsigned long  hash(const char*  key)
+{
+  size_t i = 0;
+  unsigned long hash = 0;
+  size_t length = strlen(key);
+  while (i != length) {
+    hash += key[i++];
+    hash += hash << 10;
+    hash ^= hash >> 6;
+  }
+  hash += hash << 3;
+  hash ^= hash >> 11;
+  hash += hash << 15;
+  return hash;
+}
+
 void generateRandomKeys(SortedListElement_t *elementsArray)
 {
     srand(time(NULL) + 123);
@@ -66,22 +83,7 @@ void generateRandomKeys(SortedListElement_t *elementsArray)
     return;
 }
 
-//Implementing Robert Jenking's One At A Time Hash Function 
-unsigned long  hash(const char*  key)
-{
-  size_t i = 0;
-  unsigned long hash = 0;
-  size_t length = strlen(key);
-  while (i != length) {
-    hash += key[i++];
-    hash += hash << 10;
-    hash ^= hash >> 6;
-  }
-  hash += hash << 3;
-  hash ^= hash >> 11;
-  hash += hash << 15;
-  return hash;
-}
+
 
 //Signal handler for segfault
 void signalHandler(int sigNum)
@@ -309,6 +311,7 @@ int main(int argc, char *argv[])
 
     //Initialize array of elements
     elementsArray = malloc(totalRuns * sizeof(SortedListElement_t));
+    hashOfElement = malloc(totalRuns * sizeof(unsigned long));
     generateRandomKeys(elementsArray);
 
     //Set type of listOps to be used
