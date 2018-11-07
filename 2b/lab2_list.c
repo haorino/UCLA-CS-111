@@ -105,8 +105,11 @@ void *listOpsRegular(void *threadID)
         SortedList_insert(hashTable + hashOfElement[i], elementsArray + i);
 
     //Check Length
-  //  if (SortedList_length(hashTable + hashOfElement[i]) == -1)
-    //    listCorruptedExit("SortedList_length");
+    int length = 0;
+    for (i = 0; i < numOfLists; i++)
+        length += SortedList_length(hashTable + i);
+    if (length == -1)
+        listCorruptedExit("SortedList_length()");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
@@ -140,16 +143,21 @@ void *listOpsMutex(void *threadID)
     }
 
     //Check Length
+    int length = 0;
+    for (i = 0; i < numOfLists; i++)
+    {
+        //Obtain lock for sublist
+        pthread_mutex_lock(&mutexLocksForListOps[i]);
 
-    //Obtain lock
-    //    pthread_mutex_lock(&mutexLocksForListOps[hashOfElement[i]]);
-    //Get length
-   // int length = SortedList_length(hashTable + hashOfElement[i]);
-    //Release Lock
-    //    pthread_mutex_unlock(&mutexLocksForListOps[hashOfElement[i]]);
+        //Add sublist length to total length
+        length += SortedList_length(hashTable + i);
 
-  //  if (length == -1)
-       // listCorruptedExit("SortedList_length");
+        //Release lock for sublist
+        pthread_mutex_unlock(&mutexLocksForListOps[i]);
+    }
+        
+    if (length == -1)
+        listCorruptedExit("SortedList_length()");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
@@ -192,17 +200,22 @@ void *listOpsSpinLock(void *threadID)
     }
 
     //Check Length
+    int length = 0;
+    for (i = 0; i < numOfLists; i++)
+    {
+        //Obtain lock for sublist
+        while (__sync_lock_test_and_set(&spinLocks[i], 1) == 1)
+            ; //Spin
 
-    //Obtain lock
-    //    while (__sync_lock_test_and_set(&spinLocks[hashOfElement[i]], 1) == 1)
-    //  ; //Spin
-    //Get length
-   // int length = SortedList_length(hashTable + hashOfElement[i]);
-    //Release Lock
-    //    __sync_lock_release(&spinLocks[hashOfElement[i]]);
+        //Add sublist length to total length
+        length += SortedList_length(hashTable + i);
 
-  //  if (length == -1)
-    //    listCorruptedExit("SortedList_length");
+        ///Release lock for sublist
+        __sync_lock_release(&spinLocks[i]);
+    }
+        
+    if (length == -1)
+        listCorruptedExit("SortedList_length()");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
