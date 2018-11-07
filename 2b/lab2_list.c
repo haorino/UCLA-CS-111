@@ -104,8 +104,8 @@ void *listOpsRegular(void *threadID)
         SortedList_insert(hashTable + hashOfElement[i], elementsArray + i);
 
     //Check Length
-    if (SortedList_length(hashTable + hashOfElement[i]) == -1)
-        listCorruptedExit("SortedList_length");
+  //  if (SortedList_length(hashTable + hashOfElement[i]) == -1)
+    //    listCorruptedExit("SortedList_length");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
@@ -143,12 +143,12 @@ void *listOpsMutex(void *threadID)
     //Obtain lock
     pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
     //Get length
-    int length = SortedList_length(hashTable + hashOfElement[i]);
+   // int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
     pthread_mutex_unlock(&mutexesLockForListOps[hashOfElement[i]]);
 
-    if (length == -1)
-        listCorruptedExit("SortedList_length");
+  //  if (length == -1)
+       // listCorruptedExit("SortedList_length");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
@@ -196,12 +196,12 @@ void *listOpsSpinLock(void *threadID)
     while (__sync_lock_test_and_set(&spinLocks[hashOfElement[i]], 1) == 1)
         ; //Spin
     //Get length
-    int length = SortedList_length(hashTable + hashOfElement[i]);
+   // int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
     __sync_lock_release(&spinLocks[hashOfElement[i]]);
 
-    if (length == -1)
-        listCorruptedExit("SortedList_length");
+  //  if (length == -1)
+    //    listCorruptedExit("SortedList_length");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
