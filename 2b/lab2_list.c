@@ -20,7 +20,7 @@ int numOfThreads;
 pthread_mutex_t *mutexesLockForListOps;
 int *spinLocks;
 SortedListElement_t *elementsArray;
-SortedList_t **hashTable;
+SortedList_t *hashTable;
 long* hashOfElement;
 int totalRuns;
 int opt_yield;
@@ -101,16 +101,16 @@ void *listOpsRegular(void *threadID)
     int i;
     //Insertion
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
-        SortedList_insert(hashTable[hashOfElement[i]], elementsArray + i);
+        SortedList_insert(hashTable + hashOfElement[i], elementsArray + i);
 
     //Check Length
-    if (SortedList_length(hashTable[hashOfElement[i]]) == -1)
+    if (SortedList_length(hashTable + hashOfElement[i]) == -1)
         listCorruptedExit("SortedList_length");
 
     //Lookup each element and delete it
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
-        SortedListElement_t *currentElement = SortedList_lookup(hashTable[hashOfElement[i]], elementsArray[i].key);
+        SortedListElement_t *currentElement = SortedList_lookup(hashTable + hashOfElement[i], elementsArray[i].key);
         if (currentElement == NULL)
             listCorruptedExit("SortedList_lookup");
 
@@ -132,7 +132,7 @@ void *listOpsMutex(void *threadID)
         pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
 
         //Insert element
-        SortedList_insert(hashTable[hashOfElement[i]], elementsArray + i);
+        SortedList_insert(hashTable + hashOfElement[i], elementsArray + i);
 
         //Release lock
         pthread_mutex_unlock(&mutexesLockForListOps[hashOfElement[i]]);
@@ -143,7 +143,7 @@ void *listOpsMutex(void *threadID)
     //Obtain lock
     pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
     //Get length
-    int length = SortedList_length(hashTable[hashOfElement[i]]);
+    int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
     pthread_mutex_unlock(&mutexesLockForListOps[hashOfElement[i]]);
 
@@ -157,7 +157,7 @@ void *listOpsMutex(void *threadID)
         pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
 
         //Lookup
-        SortedListElement_t *currentElement = SortedList_lookup(hashTable[hashOfElement[i]], elementsArray[i].key);
+        SortedListElement_t *currentElement = SortedList_lookup(hashTable + hashOfElement[i], elementsArray[i].key);
         if (currentElement == NULL)
             listCorruptedExit("SortedList_lookup");
 
@@ -184,7 +184,7 @@ void *listOpsSpinLock(void *threadID)
             ; //Spin
 
         //Insert element
-        SortedList_insert(hashTable[hashOfElement[i]], elementsArray + i);
+        SortedList_insert(hashTable + hashOfElement[i], elementsArray + i);
 
         //Release lock
         __sync_lock_release(&spinLocks[hashOfElement[i]]);
@@ -196,7 +196,7 @@ void *listOpsSpinLock(void *threadID)
     while (__sync_lock_test_and_set(&spinLocks[hashOfElement[i]], 1) == 1)
         ; //Spin
     //Get length
-    int length = SortedList_length(hashTable[hashOfElement[i]]);
+    int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
     __sync_lock_release(&spinLocks[hashOfElement[i]]);
 
@@ -211,7 +211,7 @@ void *listOpsSpinLock(void *threadID)
             ; //Spin
 
         //Lookup
-        SortedListElement_t *currentElement = SortedList_lookup(hashTable[hashOfElement[i]], elementsArray[i].key);
+        SortedListElement_t *currentElement = SortedList_lookup(hashTable + hashOfElement[i], elementsArray[i].key);
         if (currentElement == NULL)
             listCorruptedExit("SortedList_lookup");
 
@@ -330,15 +330,14 @@ int main(int argc, char *argv[])
 
     //Initialize Dynamic Array of List Ptrs (i.e. an open Hash Table)
     //Allocate memory
-    hashTable = calloc(numOfLists, sizeof(SortedListElement_t));
+    hashTable = calloc(numOfLists, sizeof(SortedList_t));
     mutexesLockForListOps = calloc(numOfLists, sizeof(pthread_mutex_lock));
     spinLocks = malloc(numOfLists * sizeof(int));
     //Initialize values
     for (i = 0; i < numOfLists; i++)
     {
         //Initialize circular doubly linked list
-        hashTable[i] = malloc(sizeof(SortedList_t));
-        hashTable[i]->next = hashTable[i]->prev = hashTable[i];
+        hashTable[i].next = hashTable[i].prev = hashTable + i;
 
         //Initialize mutex
         if (pthread_mutex_init(&mutexesLockForListOps[i], NULL) != 0)
@@ -384,8 +383,6 @@ int main(int argc, char *argv[])
     free(pthreadsArray);
     free(elementsArray);
     free(pthreadIDs);
-    for (i = 0; i < numOfLists; i++)
-        free(hashTable[i]);
     free(hashTable);
     free(mutexesLockForListOps);
     free(spinLocks);
