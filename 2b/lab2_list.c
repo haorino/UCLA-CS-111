@@ -17,7 +17,7 @@
 char lockType;
 long long numOfIterations;
 int numOfThreads;
-pthread_mutex_t *mutexesLockForListOps;
+pthread_mutex_t *mutexLocksForListOps;
 int *spinLocks;
 SortedListElement_t *elementsArray;
 SortedList_t *hashTable;
@@ -129,23 +129,23 @@ void *listOpsMutex(void *threadID)
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
         //Obtain lock
-        pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
+        pthread_mutex_lock(&mutexLocksForListOps[hashOfElement[i]]);
 
         //Insert element
         SortedList_insert(hashTable + hashOfElement[i], elementsArray + i);
 
         //Release lock
-        pthread_mutex_unlock(&mutexesLockForListOps[hashOfElement[i]]);
+        pthread_mutex_unlock(&mutexLocksForListOps[hashOfElement[i]]);
     }
 
     //Check Length
 
     //Obtain lock
-    pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
+    pthread_mutex_lock(&mutexLocksForListOps[hashOfElement[i]]);
     //Get length
    // int length = SortedList_length(hashTable + hashOfElement[i]);
     //Release Lock
-    pthread_mutex_unlock(&mutexesLockForListOps[hashOfElement[i]]);
+    pthread_mutex_unlock(&mutexLocksForListOps[hashOfElement[i]]);
 
   //  if (length == -1)
        // listCorruptedExit("SortedList_length");
@@ -154,7 +154,7 @@ void *listOpsMutex(void *threadID)
     for (i = *(int *)threadID; i < totalRuns; i += numOfThreads)
     {
         //Obtain lock
-        pthread_mutex_lock(&mutexesLockForListOps[hashOfElement[i]]);
+        pthread_mutex_lock(&mutexLocksForListOps[hashOfElement[i]]);
 
         //Lookup
         SortedListElement_t *currentElement = SortedList_lookup(hashTable + hashOfElement[i], elementsArray[i].key);
@@ -166,7 +166,7 @@ void *listOpsMutex(void *threadID)
             listCorruptedExit("SortList_delete");
 
         //Release lock
-        pthread_mutex_unlock(&mutexesLockForListOps[hashOfElement[i]]);
+        pthread_mutex_unlock(&mutexLocksForListOps[hashOfElement[i]]);
     }
     return NULL;
 }
@@ -310,8 +310,8 @@ int main(int argc, char *argv[])
         pthreadIDs[i] = i;
 
     //Initialize array of elements
-    elementsArray = malloc(totalRuns * sizeof(int*));
-    hashOfElement = malloc(totalRuns * sizeof(unsigned long));
+    elementsArray = (SortedListElement_t *) malloc(totalRuns * sizeof(SortedListElement_t));
+    hashOfElement = (long *) malloc(totalRuns * sizeof(unsigned long));
     generateRandomKeys(elementsArray);
 
     //Set type of listOps to be used
@@ -330,9 +330,9 @@ int main(int argc, char *argv[])
 
     //Initialize Dynamic Array of List Ptrs (i.e. an open Hash Table)
     //Allocate memory
-    hashTable = calloc(numOfLists, sizeof(SortedList_t));
-    mutexesLockForListOps = calloc(numOfLists, sizeof(pthread_mutex_lock));
-    spinLocks = malloc(numOfLists * sizeof(int));
+    hashTable = (SortedList_t *) calloc(numOfLists, sizeof(SortedList_t));
+    mutexLocksForListOps = (pthread_mutex_t *) calloc(numOfLists, sizeof(pthread_mutex_t));
+    spinLocks = (int *) malloc(numOfLists * sizeof(int));
     //Initialize values
     for (i = 0; i < numOfLists; i++)
     {
@@ -340,7 +340,7 @@ int main(int argc, char *argv[])
         hashTable[i].next = hashTable[i].prev = hashTable + i;
 
         //Initialize mutex
-        if (pthread_mutex_init(&mutexesLockForListOps[i], NULL) != 0)
+        if (pthread_mutex_init(&mutexLocksForListOps[i], NULL) != 0)
             printErrorAndExit("initializing mutex", errno);
 
         //Initialize spinLock
@@ -369,7 +369,7 @@ int main(int argc, char *argv[])
     //Destroy mutexes
     for (i = 0; i < numOfLists; i++)
     {
-        if (pthread_mutex_destroy(&mutexesLockForListOps[i]) != 0)
+        if (pthread_mutex_destroy(&mutexLocksForListOps[i]) != 0)
             printErrorAndExit("destroying mutex", errno);
     }
 
@@ -384,7 +384,7 @@ int main(int argc, char *argv[])
     // free(elementsArray);
     // free(pthreadIDs);
     // free(hashTable);
-    // free(mutexesLockForListOps);
+    // free(mutexLocksForListOps);
     // free(spinLocks);
 
     //Print output

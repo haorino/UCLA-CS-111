@@ -5,7 +5,7 @@
 default: build
 
 build: lab2_list.c SortedList.c
-	gcc -Wall -Wextra -Werror -pthread -g lab2_list.c SortedList.c -lrt -o lab2_list
+	gcc -Wall -Wextra -Werror -pthread -g lab2_list.c SortedList.c -o lab2_list
 
 clean:	
 	rm -rf *tar* lab2_list  *.o *.dSYM DS_Store *~ 
