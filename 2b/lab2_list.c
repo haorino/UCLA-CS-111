@@ -380,12 +380,12 @@ int main(int argc, char *argv[])
                         (endTime.tv_nsec - startTime.tv_nsec);
 
     //Free memory
-    free(pthreadsArray);
-    free(elementsArray);
-    free(pthreadIDs);
-    free(hashTable);
-    free(mutexesLockForListOps);
-    free(spinLocks);
+    // free(pthreadsArray);
+    // free(elementsArray);
+    // free(pthreadIDs);
+    // free(hashTable);
+    // free(mutexesLockForListOps);
+    // free(spinLocks);
 
     //Print output
     //Determining the yield string
