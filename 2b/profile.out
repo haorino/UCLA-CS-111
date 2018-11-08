@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 Total: 1350 samples
     1197  88.7%  88.7%     1203  89.1% timedLock
      121   9.0%  97.6%      121   9.0% __strcmp_sse42
@@ -10,6 +11,21 @@ Total: 1350 samples
        0   0.0% 100.0%     1350 100.0% start_thread
 ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_list.c
   1197   1203 Total samples (flat / cumulative)
+=======
+Total: 1363 samples
+    1243  91.2%  91.2%     1253  91.9% timedLock
+      78   5.7%  96.9%       78   5.7% __strcmp_sse42
+      15   1.1%  98.0%       54   4.0% SortedList_lookup
+      14   1.0%  99.0%       56   4.1% SortedList_insert
+      10   0.7%  99.8%       10   0.7% 0x00007ffdfd9416c2
+       3   0.2% 100.0%        3   0.2% _init
+       0   0.0% 100.0%       10   0.7% __GI___clock_gettime
+       0   0.0% 100.0%     1363 100.0% __clone
+       0   0.0% 100.0%     1363 100.0% listOpsSpinLock
+       0   0.0% 100.0%     1363 100.0% start_thread
+ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_list.c
+  1243   1253 Total samples (flat / cumulative)
+>>>>>>> Stashed changes
      .      .   46:             "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield={dli}] --sync={m,s}]\n", argv0);
      .      .   47:     exit(1);
      .      .   48: }
@@ -19,7 +35,11 @@ ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_lis
      .      .   51: {
      .      .   52:     //Initialize timer
      .      .   53:     struct timespec startTime, endTime;
+<<<<<<< Updated upstream
      .      4   54:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
+=======
+     .      6   54:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
+>>>>>>> Stashed changes
      .      .   55:         printErrorAndExit("getting start time", errno);
      .      .   56: 
      .      .   57:     //Obtain lock
@@ -29,16 +49,28 @@ ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_lis
      .      .   61:     else 
      .      .   62:     //Lock type is spinLock
      .      .   63:     {
+<<<<<<< Updated upstream
   1197   1197   64:         while (__sync_lock_test_and_set(spinLock, 1) == 1)
+=======
+  1242   1242   64:         while (__sync_lock_test_and_set(spinLock, 1) == 1)
+>>>>>>> Stashed changes
      .      .   65:             ; //Spin
      .      .   66:     }
      .      .   67: 
      .      .   68:     //Get end time
+<<<<<<< Updated upstream
      .      2   69:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
      .      .   70:         printErrorAndExit("getting end time", errno);
      .      .   71: 
      .      .   72:     //Add to total time for locking for this thread
      .      .   73:     totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+=======
+     .      4   69:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
+     .      .   70:         printErrorAndExit("getting end time", errno);
+     .      .   71: 
+     .      .   72:     //Add to total time for locking for this thread
+     1      1   73:     totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+>>>>>>> Stashed changes
      .      .   74:     totalLockTime[*(int *)threadID].tv_nsec += endTime.tv_nsec - startTime.tv_nsec;
      .      .   75: 
      .      .   76:     return;
@@ -50,7 +82,11 @@ ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_lis
      .      .   81: {
      .      .   82:     size_t i = 0;
 ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_list.c
+<<<<<<< Updated upstream
   1197   1203 Total samples (flat / cumulative)
+=======
+  1243   1253 Total samples (flat / cumulative)
+>>>>>>> Stashed changes
      .      .   46:             "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield={dli}] --sync={m,s}]\n", argv0);
      .      .   47:     exit(1);
      .      .   48: }
@@ -60,7 +96,11 @@ ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_lis
      .      .   51: {
      .      .   52:     //Initialize timer
      .      .   53:     struct timespec startTime, endTime;
+<<<<<<< Updated upstream
      .      4   54:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
+=======
+     .      6   54:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
+>>>>>>> Stashed changes
      .      .   55:         printErrorAndExit("getting start time", errno);
      .      .   56: 
      .      .   57:     //Obtain lock
@@ -70,16 +110,28 @@ ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_lis
      .      .   61:     else 
      .      .   62:     //Lock type is spinLock
      .      .   63:     {
+<<<<<<< Updated upstream
   1197   1197   64:         while (__sync_lock_test_and_set(spinLock, 1) == 1)
+=======
+  1242   1242   64:         while (__sync_lock_test_and_set(spinLock, 1) == 1)
+>>>>>>> Stashed changes
      .      .   65:             ; //Spin
      .      .   66:     }
      .      .   67: 
      .      .   68:     //Get end time
+<<<<<<< Updated upstream
      .      2   69:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
      .      .   70:         printErrorAndExit("getting end time", errno);
      .      .   71: 
      .      .   72:     //Add to total time for locking for this thread
      .      .   73:     totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+=======
+     .      4   69:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
+     .      .   70:         printErrorAndExit("getting end time", errno);
+     .      .   71: 
+     .      .   72:     //Add to total time for locking for this thread
+     1      1   73:     totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+>>>>>>> Stashed changes
      .      .   74:     totalLockTime[*(int *)threadID].tv_nsec += endTime.tv_nsec - startTime.tv_nsec;
      .      .   75: 
      .      .   76:     return;

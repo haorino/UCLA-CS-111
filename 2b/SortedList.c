@@ -3,6 +3,7 @@
 #include "SortedList.h"
 #include <stdlib.h>
 #include <string.h>
+#include <sched.h>
 
 /**
  * SortedList_insert ... insert an element into a sorted list
@@ -38,6 +39,10 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element)
         }
         else
             currentElement = currentElement->next;
+
+	//Yield                                                                                                                                                                                            
+	if (opt_yield & INSERT_YIELD)
+	  sched_yield();
     }
 
     //Element-> key is the largest value in the list, add it to the end
@@ -69,6 +74,10 @@ int SortedList_delete(SortedListElement_t *element)
         return 1;
     if (element->next->prev != element || element->prev->next != element)
         return 1;
+    
+    //Yield
+    if (opt_yield & DELETE_YIELD)
+      sched_yield();
 
     //Remove element from list - should I free memory?
     element->prev->next = element->next;
@@ -102,6 +111,9 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key)
             return currentElement;
         else
             currentElement = currentElement->next;
+	
+	if (opt_yield & LOOKUP_YIELD)
+	  sched_yield();
     }
 
     //If no element matches, return NULL
@@ -137,9 +149,13 @@ int SortedList_length(SortedList_t *list)
 
         //Increment size as currentElement->next is not NULL so 1 more element
         ++size;
-
+   
         //Move ahead in the list
         currentElement = currentElement->next;
+
+	//Yield
+	if(opt_yield & LOOKUP_YIELD)
+	  sched_yield();
     }
 
     return size;
