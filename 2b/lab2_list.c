@@ -178,7 +178,7 @@ void *listOpsMutex(void *threadID)
         timedLock(&mutexLocksForListOps[i], NULL, threadID);
 
         //Add sublist length to total length
-        length += SortedList_length(hashTable + i);
+	length += SortedList_length(hashTable + i);
 
         //Release lock for sublist
         pthread_mutex_unlock(&mutexLocksForListOps[i]);
@@ -394,7 +394,7 @@ int main(int argc, char *argv[])
 
     //Initialize timer
     struct timespec startTime, endTime;
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime) < 0)
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
         printErrorAndExit("getting start time", errno);
 
     //Create threads
@@ -412,13 +412,15 @@ int main(int argc, char *argv[])
     }
 
     //Get end time
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime) < 0)
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
         printErrorAndExit("getting end time", errno);
 
     //Calculations
     //Calculate time taken for process
     long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L +
                         (endTime.tv_nsec - startTime.tv_nsec);
+    if (endTime.tv_nsec - startTime.tv_nsec < 0)
+	runTime += 1000000000L;
 
     //Destroy mutexes
     for (i = 0; i < numOfLists; i++)
@@ -434,6 +436,8 @@ int main(int argc, char *argv[])
         {
             totalLockTimeNsecs += totalLockTime[i].tv_nsec;
             totalLockTimeNsecs += totalLockTime[i].tv_sec * 1000000000L;
+	    if (totalLockTime[i].tv_nsec < 0)
+	      totalLockTimeNsecs += 1000000000L;
         }
 
     //Free memory

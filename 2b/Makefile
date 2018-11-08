@@ -5,7 +5,7 @@
 default: build
 
 build: lab2_list.c SortedList.c
-	gcc -Wall -Wextra -Werror -pthread -g lab2_list.c SortedList.c -o lab2_list
+	gcc -Wall -Wextra -Werror -pthread -lprofiler -g lab2_list.c SortedList.c -o lab2_list
 
 clean:	
 	rm -rf *tar* lab2_list  *.o *.dSYM DS_Store *~ 
@@ -15,13 +15,13 @@ graphs: tests
 	gnuplot lab2_list.gp
 
 dist: graphs profile lab2_list.c Makefile README SortedList.c SortedList.h
-	tar -czf lab2b-105032378.tar.gz lab2_list.c Makefile README SortedList.c SortedList.h *.png *.csv *.gp 
+	tar -czf lab2b-105032378.tar.gz lab2_list.c Makefile README SortedList.c SortedList.h *.png *.csv *.gp profile.out
 
 profile:
 	rm -rf ./raw.gperf
-	LD_PRELOAD=/u/cs/ugrad/siddharj/lib/libprofiler.so.0 CPUPROFILE=./raw.gperf ./lab2_list --threads=12 --iterations=1000 --sync=s
+	CPUPROFILE=./raw.gperf ./lab2_list --threads=12 --iterations=1000 --sync=s
 	pprof --text ./lab2_list ./raw.gperf > profile.out
-	pprof --list=spin_lock_and_time ./lab2_list ./raw.gperf >> profile.out
+	pprof --list=timedLock ./lab2_list ./raw.gperf >> profile.out
 	rm -f ./raw.gperf
 
 tests: clean build

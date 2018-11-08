@@ -1,0 +1,92 @@
+Total: 1350 samples
+    1197  88.7%  88.7%     1203  89.1% timedLock
+     121   9.0%  97.6%      121   9.0% __strcmp_sse42
+      19   1.4%  99.0%       68   5.0% SortedList_insert
+       7   0.5%  99.6%       79   5.9% SortedList_lookup
+       6   0.4% 100.0%        6   0.4% 0x00007ffdcf5b66c2
+       0   0.0% 100.0%        6   0.4% __GI___clock_gettime
+       0   0.0% 100.0%     1350 100.0% __clone
+       0   0.0% 100.0%     1350 100.0% listOpsSpinLock
+       0   0.0% 100.0%     1350 100.0% start_thread
+ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_list.c
+  1197   1203 Total samples (flat / cumulative)
+     .      .   46:             "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield={dli}] --sync={m,s}]\n", argv0);
+     .      .   47:     exit(1);
+     .      .   48: }
+     .      .   49: 
+     .      .   50: void timedLock(pthread_mutex_t *mutex, int *spinLock, void *threadID)
+---
+     .      .   51: {
+     .      .   52:     //Initialize timer
+     .      .   53:     struct timespec startTime, endTime;
+     .      4   54:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
+     .      .   55:         printErrorAndExit("getting start time", errno);
+     .      .   56: 
+     .      .   57:     //Obtain lock
+     .      .   58:     if (mutex != NULL)
+     .      .   59:     //Lock type is mutex
+     .      .   60:         pthread_mutex_lock(mutex);
+     .      .   61:     else 
+     .      .   62:     //Lock type is spinLock
+     .      .   63:     {
+  1197   1197   64:         while (__sync_lock_test_and_set(spinLock, 1) == 1)
+     .      .   65:             ; //Spin
+     .      .   66:     }
+     .      .   67: 
+     .      .   68:     //Get end time
+     .      2   69:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
+     .      .   70:         printErrorAndExit("getting end time", errno);
+     .      .   71: 
+     .      .   72:     //Add to total time for locking for this thread
+     .      .   73:     totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+     .      .   74:     totalLockTime[*(int *)threadID].tv_nsec += endTime.tv_nsec - startTime.tv_nsec;
+     .      .   75: 
+     .      .   76:     return;
+     .      .   77: }
+---
+     .      .   78: 
+     .      .   79: //Implementing Robert Jenking's One At A Time Hash Function
+     .      .   80: unsigned long hash(const char *key)
+     .      .   81: {
+     .      .   82:     size_t i = 0;
+ROUTINE ====================== timedLock in /u/cs/ugrad/siddharj/111/2b/lab2_list.c
+  1197   1203 Total samples (flat / cumulative)
+     .      .   46:             "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield={dli}] --sync={m,s}]\n", argv0);
+     .      .   47:     exit(1);
+     .      .   48: }
+     .      .   49: 
+     .      .   50: void timedLock(pthread_mutex_t *mutex, int *spinLock, void *threadID)
+---
+     .      .   51: {
+     .      .   52:     //Initialize timer
+     .      .   53:     struct timespec startTime, endTime;
+     .      4   54:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &startTime) < 0)
+     .      .   55:         printErrorAndExit("getting start time", errno);
+     .      .   56: 
+     .      .   57:     //Obtain lock
+     .      .   58:     if (mutex != NULL)
+     .      .   59:     //Lock type is mutex
+     .      .   60:         pthread_mutex_lock(mutex);
+     .      .   61:     else 
+     .      .   62:     //Lock type is spinLock
+     .      .   63:     {
+  1197   1197   64:         while (__sync_lock_test_and_set(spinLock, 1) == 1)
+     .      .   65:             ; //Spin
+     .      .   66:     }
+     .      .   67: 
+     .      .   68:     //Get end time
+     .      2   69:     if (clock_gettime(CLOCK_MONOTONIC_RAW, &endTime) < 0)
+     .      .   70:         printErrorAndExit("getting end time", errno);
+     .      .   71: 
+     .      .   72:     //Add to total time for locking for this thread
+     .      .   73:     totalLockTime[*(int *)threadID].tv_sec += endTime.tv_sec - startTime.tv_sec;
+     .      .   74:     totalLockTime[*(int *)threadID].tv_nsec += endTime.tv_nsec - startTime.tv_nsec;
+     .      .   75: 
+     .      .   76:     return;
+     .      .   77: }
+---
+     .      .   78: 
+     .      .   79: //Implementing Robert Jenking's One At A Time Hash Function
+     .      .   80: unsigned long hash(const char *key)
+     .      .   81: {
+     .      .   82:     size_t i = 0;
