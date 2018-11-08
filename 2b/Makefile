@@ -18,19 +18,11 @@ dist: graphs profile lab2_list.c Makefile README SortedList.c SortedList.h
 	tar -czf lab2b-105032378.tar.gz lab2_list.c Makefile README SortedList.c SortedList.h *.png *.csv *.gp profile.out
 
 profile:
-<<<<<<< Updated upstream
-	rm -rf ./raw.gperf
-	CPUPROFILE=./raw.gperf ./lab2_list --threads=12 --iterations=1000 --sync=s
-	pprof --text ./lab2_list ./raw.gperf > profile.out
-	pprof --list=timedLock ./lab2_list ./raw.gperf >> profile.out
-	rm -f ./raw.gperf
-=======
 	-rm -f ./raw.gperf 1>/dev/null 2>/dev/null
 	-CPUPROFILE=./raw.gperf ./lab2_list --threads=12 --iterations=1000 --sync=s 1>/dev/null 2>/dev/null
 	-pprof --text ./lab2_list ./raw.gperf > profile.out 2>/dev/null
 	-pprof --list=timedLock ./lab2_list ./raw.gperf >> profile.out 2>/dev/null
 	rm -f ./raw.gperf 1>/dev/null 2>/dev/null
->>>>>>> Stashed changes
 
 tests: clean build
 	./lab2_list --iterations=1000 --sync=m --threads=1 >> lab2b_list.csv

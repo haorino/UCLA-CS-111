@@ -418,18 +418,10 @@ int main(int argc, char *argv[])
 
     //Calculations
     //Calculate time taken for process
-<<<<<<< Updated upstream
-    long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L +
-                        (endTime.tv_nsec - startTime.tv_nsec);
-    if (endTime.tv_nsec - startTime.tv_nsec < 0)
-	runTime += 1000000000L;
-=======
     long long nsecsDiff = endTime.tv_nsec - startTime.tv_nsec;
     long long runTime = (endTime.tv_sec - startTime.tv_sec) * 1000000000L + nsecsDiff;
     if (nsecsDiff < 0)
 	runTime += 1000000000L;
-    
->>>>>>> Stashed changes
 
     //Destroy mutexes
     for (i = 0; i < numOfLists; i++)
