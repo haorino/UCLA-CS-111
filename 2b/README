@@ -5,103 +5,112 @@ SLIPDAYS: 0
 
 QUESTIONS & ANSWERS:
 
-QUESTION 2.1.1 - causing conflicts:
-Why does it take many iterations before errors are seen?
-Why does a significantly smaller number of iterations so seldom fail?
+QUESTION 2.3.1 - CPU time in the basic list implementation:
+Where do you believe most of the CPU time is spent in the 1 and 2-thread list tests?
+Why do you believe these to be the most expensive parts of the code?
+Where do you believe most of the CPU time is being spent in the high-thread spin-lock tests?
+Where do you believe most of the CPU time is being spent in the high-thread mutex tests?
 
-Ans. The errors occur when two or more threads enter the add() function at the same time.
-This is far less likely with fewer iterations, hence it takes a lot of iterations for the errors to show up 
-consistently, and with fewer iterations there is often no error at all.
-
-QUESTION 2.1.2 - cost of yielding:
-Why are the --yield runs so much slower?
-Where is the additional time going?
-Is it possible to get valid per-operation timings if we are using the --yield option?
-If so, explain how. If not, explain why not.
-
-Ans. The yield option runs are slower as they call sched_yield() and this results in more context switches than necessary,
-adding unnecessary overhead - resulting in additional time being spent doing these switches. It is thereotically possible
-to get the valid per-operation timings while using the yield option, but this would require accurately measuring the time
-taken to context switch (and measurement of such a time would in itself require a context switch - if it is to be done
-on the same machine). In reality, it's impossible to actually get the precise time lost due to the overhead of sched_yield()
-Moreover, the yield option would still take longer, as the manual yields result in avoiding the use of the pthread library
-scheduler and hence may not exploit the fullest potential of the cache.
-
-QUESTION 2.1.3 - measurement errors:
-Why does the average cost per operation drop with increasing iterations?
-If the cost per iteration is a function of the number of iterations, 
-how do we know how many iterations to run (or what the "correct" cost is)?
-
-Ans. The average cost per operation drops with increasing iterations as the constant overhead of creating the threads, 
-joining the threads etc. is now split over a larger number of iterations -> thus reducing the mean cost. The correct cost
-is dependent entirely on the add() function, and hence running as many iterations as feasible would give the most accurate
-per operation cost. 
+Ans. In my opinion, the majority of CPU time in 1 and 2 threaded list tests
+is spent in list operations (insert, length, lookup, delete (they all would
+probably have similar CPU time usage in comparison to each other)). This is
+because with 1 thread: there is 0 time spent trying to obtain a lock, and  
+with 2 threads, contention is very low (time waiting for lock is almost negligible)
+The most expensive part of the code, I believe, would be the section where keys
+are looked up and then deleted as it is the only section involving 2 list operations
+in each iteration. In high threaded tests spin-locked implementations, the spinning
+i.e. the no-op ';' that occurs while the lock is obtained is where I believe the
+most CPU time would be spent. Whereas for mutex-locked implementations, the high
+number of threads would still cause the majority of CPU time to go into the list
+operations as the thread wouldn't waste CPU time trying to obtain the lock, and
+instead just be put to sleep.
 
 
-QUESTION 2.1.4 - costs of serialization:
-Why do all of the options perform similarly for low numbers of threads?
-Why do the three protected operations slow down as the number of threads rises?
+QUESTION 2.3.2 - Execution Profiling:
+Where (what lines of code) are consuming most of the CPU time when the spin-lock version of the list 
+exerciser is run with a large number of threads?
+Why does this operation become so expensive with large numbers of threads?
 
-Ans. The operations perform similarly for low number of threads, as they are fewer contentions for the same resources (the counter
-variable) as compared to what would have been with more threads. Due to the fewer contentions, a convoy is less likely to perform
-and threads don't spend as much time waiting for the resource as they would if a convoy had formed due to many threads waiting
-to execute the critical section. By adding only few threads, the odds of contention don't rise significantly, hence the bottle-
-neck doesn't really worsen, and hence performance remains relatively the same. 
-In the case with few threads and the short critical section, even the usually inefficient spin lock fares well performance-wise. 
-The three protected operations significantly slow down execution as they ensure that only one thread executes the critical section
-at a time, causing all the other threads to wait whenever another thread is executing the critical section. Since they are all
-competing for the same resource, a convoy forms and all parallelism is lost. 
+Ans. The timedLock() function that actually implements the acquiring of the spin
+lock is where the majority of CPU time is spent with a large number of threads.
+Specifically, it is lines 64-65 where the "while (__sync_lock_test_and_set(spinLock, 1) == 1) ; //Spin"
+statements occur that take up most of the CPU time. These lines are where a thread
+checks if a lock has been acquired and if so, spins i.e. keeps checking until the lock
+is freed. With a large number of threads, there is higher contention, which results in
+more threads having to wait and thus each thread having to wait for longer before
+it can acquire the lock and carry out list operations. As more and more threads, contest
+for the same locks, more CPU time is consumed simply spinning - trying to acquire these 
+locks - thus making the operation extremely expensive with a large number of threads.
 
-QUESTION 2.2.1 - scalability of Mutex
-Compare the variation in time per mutex-protected operation vs the number of threads in Part-1 (adds) and Part-2 (sorted lists).
-Comment on the general shapes of the curves, and explain why they have this shape.
-Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for these differences.
+QUESTION 2.3.3 - Mutex Wait Time:
+Look at the average time per operation (vs. # threads) and the average wait-for-mutex time (vs. #threads).
+Why does the average lock-wait time rise so dramatically with the number of contending threads?
+Why does the completion time per operation rise (less dramatically) with the number of contending threads?
+How is it possible for the wait time per operation to go up faster (or higher) than the completion time per operation?
 
-Ans. The variation in time per mutex-protected operations in part 1 and part 2 increases approximately linearly with time.
-The adds have the time increase rapidly at first but eventually the slope flattens out (while remaining linear all the while). 
-The slowing down (increase in time) is perhaps due to the increased contention for the mutex, adding the overhead of 
-obtaining and releasing the mutex. List ops slope remains constant throughout. This is due to the fact that list ops 
-are more cpu intensive than addition and hence the overhead of the mutex is way more costly than the contention of it. 
+Ans. The average lock time rises dramatically with the number of threads, as the contention
+rises significant;y forcing threads to have to wait more often and for longer. Moreover,
+The completion time per operations rises but not as quickly, since the context switches
+between the threads would cause the data in the L1 and L2 Caches to get replaced. this
+cases the time to rise but not as much as acceses to memory might or the spinning.
+It is possible for the wait time per operation to go up faster (or higher) than the completion
+time per operation in high-threaded runs. This is due to the high contention between threads
+for the locks on the lists which would result in the overhead of threads waiting
+for longer than it takes to complete the operation, thus causing the wait time per operation 
+to be higher than the per operation completion time.
 
-QUESTION 2.2.2 - scalability of spin locks
-Compare the variation in time per protected operation vs the number of threads for list operations protected by Mutex 
-vs Spin locks. Comment on the general shapes of the curves, and explain why they have this shape.
-Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for 
-these differences.
+QUESTION 2.3.4 - Performance of Partitioned Lists
+Explain the change in performance of the synchronized methods as a function of the number of lists.
+Should the throughput continue increasing as the number of lists is further increased? If not, explain why not.
+It seems reasonable to suggest the throughput of an N-way partitioned list should be equivalent to the throughput 
+of a single list with fewer (1/N) threads. Does this appear to be true in the above curves? If not, explain why not.
 
-Ans. Larger number of threads, cost spinlocks to be more costly since there is greater contention for the resource,
-and hence more threads spend their time slice uselessly spinning and do so for longer as well. Right after 2 threads,
-it's easy to see that spin locks overhead time increases faster than that of mutexes. 
-The rate of increase for both spin locks and mutexes are roughly linear, but spin locks have a much larger slope.
-Mutexes ability to allow threads to sleep and be woken up, allows for the time slices spent spinning while using 
-spin locks to be conserved (and the overhead for the sleeping and waking up seems to not affect the timing that much). 
-A spin lock hence is evident to be useful with low levels of contentions in scenarios with short critical sections, but
-not in other cases due to the time spent uselessly spinning while waiting. 
+Ans. As more sub-lists are added, the threads can now insert the elements into any of the sub-lists
+and since each sub list is distinct (not linked across sub lists in the linked list), they have 
+a lock for each sub list. As a result, due to a good hash function that maps the elements to
+one of the sublists, threads insert nearly the same amount of elements in each sub list.
+This lowers the contention significantly, as all threads don't compete for a single resource
+(the spin lock), rather they contend for one of the # of lists spin locks. This reduction 
+in contention speeds up execution with more lists significantly. As the # of lists 
+is further increased, there will be a dip in per operation time initially, but eventually
+there will a point where adding more lists doesn't help as there is virtually no contention
+amongst the different threads, thus the time taken per operation will not change. The throughput 
+of an N-way partitioned list is equivalent to a single list with fewer (1/N) threads according 
+to the graphs. This is due to the fact that the ratio of sub lists to threads is nearly the same 
+amongst the 2 cases,and hence there is an equal amount of contention - leading to equivalent throughput.
+For example, inserting 100 elements using 100 threads and 100 lists v/s inserting 100 elements
+in 1 list using 1 thread would both have no contention assuming an ideal (a very good) hash function,
+resulting in equal throughput. 
+
 
 FILE DESCRIPTIONS:
-lab2a_add.c: Locked and unlocked adding to a counter variable demonstrating use of multithreading
-
-lab2a_list.c: Driver for SortedList.c - does list operations without 
+lab2a_list.c: Driver for SortedList.c - does list operations with and without protection
 
 SortedList.c: Implementation of function prototypes mentioned in SortedList.h
 
 SortedList.h: Interface for Sorted List (provided w/o implementation in specifications)
 
-Makefile: provides functionality to build, test, graph and tar the files for distribution
+Makefile: provides functionality to build, test, graphs, tests, profile and tar the files for distribution
 build/default: compiles the files
 tests: runs tests and logs them in 'csv's
 graphs: creates graphs from the tests using GNU plot and the scripts given in project specifications 
 dist: tars all files for distribution
-default - compiles the files
-tests - runs tests
+default: compiles the files
+tests: runs tests
+profile: profiles the runtime of the operation and timedLock function in detail
 
-*.gp: Scripts to plot the data
+lab2_list.gp: Scripts to plot the data
 
-*.csv: Data obtained by running tests (make tests)
+lab2_list.csv: Data obtained by running tests (make tests)
 
-*.png: The graphs generated
+*.png: Graphs generated by make graphs
 
 README: Explains features of the projects, answers questions and cites references. 
 
+profile.out: output of make profile, stores the profiling of the spin lock test
+
 REFERENCES:
-https://gist.github.com/badboy/6267743 Robert Jenkins 32 Bit Integer Hash Function
+https://en.wikipedia.org/wiki/Jenkins_hash_function
+https://sourceware.org/binutils/docs/gprof/
+https://people.duke.edu/~hpgavin/gnuplot.html
+
