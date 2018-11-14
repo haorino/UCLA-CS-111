@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <errno.h>
+#include <limits.h>
 #include <string.h>
 #include <sys/fcntl.h>
 #include <time.h>
@@ -53,6 +54,17 @@ void shutDown()
         exit(0);
     }
     exit(0);
+}
+
+float getTemperature (int rawTemp)
+{
+  float step1  = 100000.0 * (1023.0/((float)rawTemp)-1.0);
+  int step2  = 4275;
+  float tempInC = 1.0/(log(R/100000.0)/B+1/298.15)-273.15;
+  if (scale == 'F')
+    return (tempInC * 1.8) + 32;
+  else
+    return tempInC;
 }
 
 int main(int argc, char **argv)
@@ -122,7 +134,7 @@ int main(int argc, char **argv)
         printErrorAndExit("initializing button", errno);
 
     //Set up polling for commands
-    commandsPoll.fd = STDIN_FILENO;
+    commandsPoll.fd = 0;
     commandsPoll.events = POLLIN;
 
     //Initialize start time
@@ -168,7 +180,7 @@ int main(int argc, char **argv)
         if (commandsPoll.revents & POLLIN)
         {
             //Read from STDIN
-            int numBytes = read(STDIN_FILENO, buffer, 512);
+            int numBytes = read(0, buffer, 512);
             if (numBytes < 0)
                 printErrorAndExit("reading commands from stdin", errno);
             else if (numBytes == 0)
@@ -180,6 +192,7 @@ int main(int argc, char **argv)
             {
                 if (buffer[i] == '\n') //Command completed - process it
                 {
+		    int isPeriod = 0;
                     buffer[i] = '\0'; //Setting null character at newline allows to 'end' string there
                     if (strcmp(buffer + startOfCommand, "OFF") == 0)
                         shutDown();
@@ -191,7 +204,7 @@ int main(int argc, char **argv)
                         scale = 'C';
                     else if (strcmp(buffer + startOfCommand, "SCALE=F") == 0)
                         scale = 'F';
-                    else if (strcmp(buffer + startOfCommand, "PERIOD=", 7) == 0)
+                    else if (strncmp(buffer + startOfCommand, "PERIOD=", 7) == 0)
                     {
                         //Check if valid period
                         long newPeriod = strtol(buffer + startOfCommand + 7, NULL, 10);
@@ -205,9 +218,14 @@ int main(int argc, char **argv)
 
                         //Change period
                         periodInSecs = newPeriod;
-                        if (logFile != NULL)
-                            fprintf(logFile, "PERIOD=%lu\n", newPeriod);
+			if (logFile != NULL)
+			  fprintf(logFile, "PERIOD=%lu\n", newPeriod);
+			isPeriod = 1;
+
                     }
+		    
+		    if (logFile != NULL && !isPeriod)
+		      fprintf(logFile, "%s\n", buffer + startOfCommand);
                     startOfCommand = i + 1;
                 }
             }
