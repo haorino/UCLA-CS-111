@@ -3,7 +3,7 @@
 .SILENT:
 
 build: lab4b.c 
-	gcc -Wall -Wextra -g  lab4b.c -o lab4b
+	gcc -Wall -Wextra -lmraa -g  lab4b.c -o lab4b
 
 clean: 
 	rm -rf lab4b-105032378.tar.gz lab4b
