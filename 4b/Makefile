@@ -9,7 +9,7 @@ clean:
 	rm -rf lab4b-105032378.tar.gz lab4b
 
 check:	build
-	chmod +x checks.sh
+	chmod a+rx checks.sh
 	./checks.sh
 
 dist: Makefile README lab4b.c 
