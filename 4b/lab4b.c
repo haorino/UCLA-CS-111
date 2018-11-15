@@ -8,6 +8,7 @@
 #include <time.h>
 #include <poll.h>
 #include <mraa.h>
+#include <math.h>
 
 //Global variables
 char scale = 'F';
@@ -23,7 +24,7 @@ void printErrorAndExit(const char *errorMsg, int errorNum)
 void printUsageAndExit(const char *argv0)
 {
     fprintf(stderr,
-            "Usage: %s [--threads=numOfThreads] [--iterations=numOfIterations] [--yield={dli}] --sync={m,s}]\n", argv0);
+            "Usage: %s [--period=periodInSecs] [--scale={C,F}] [--log=fileName]\n", argv0);
     exit(1);
 }
 
@@ -56,28 +57,24 @@ void shutDown()
     exit(0);
 }
 
-float getTemperature (int rawTemp)
+float getTemperature(int rawTemp)
 {
-  float step1  = 100000.0 * (1023.0/((float)rawTemp)-1.0);
-  int step2  = 4275;
-  float tempInC = 1.0/(log(step1/100000.0)/step2+1/298.15)-273.15;
-  if (scale == 'F')
-    return (tempInC * 1.8) + 32;
-  else
-    return tempInC;
+    float step1 = 100000.0 * (1023.0 / ((float)rawTemp) - 1.0);
+    int step2 = 4275;
+    float tempInC = 1.0 / (log(step1 / 100000.0) / step2 + 1 / 298.15) - 273.15;
+    if (scale == 'F')
+        return (tempInC * 1.8) + 32;
+    else
+        return tempInC;
 }
 
 int main(int argc, char **argv)
 {
     // Initializing variables
     int argsLeft;
-
     long periodInSecs = 1;
-
     struct pollfd commandsPoll;
     int firstReport = 1;
-    mraa_aio_context temperatureSensor;
-    mraa_gpio_context button;
     int stopped = 0;
     char buffer[512];
 
@@ -115,7 +112,7 @@ int main(int argc, char **argv)
 
         case 'l':
             //Open log file for writing
-            logFile = fopen(optarg, "w");
+            logFile = fopen(optarg, "a");
             if (logFile == NULL)
                 printErrorAndExit("opening log file", errno);
             break;
@@ -126,10 +123,14 @@ int main(int argc, char **argv)
     }
 
     //Initialize hardware
-    temperatureSensor = mraa_aio_init(0);
-    button = mraa_aio_init(3);
+    mraa_init();
+    mraa_aio_context temperatureSensor;
+    temperatureSensor = mraa_aio_init(1);
     if (!temperatureSensor)
         printErrorAndExit("initializing temperature sensor", errno);
+    mraa_gpio_context button = mraa_gpio_init(60);
+    mraa_gpio_dir(button, MRAA_GPIO_IN);
+
     if (!button)
         printErrorAndExit("initializing button", errno);
 
@@ -138,25 +139,27 @@ int main(int argc, char **argv)
     commandsPoll.events = POLLIN;
 
     //Initialize start time
-    struct timespec startTime, currentTime;
-    if (clock_gettime(CLOCK_REALTIME, &startTime) < 0)
-        printErrorAndExit("starting timer for period", errno);
+    //struct timespec startTime, currentTime;
+    //if (clock_gettime(CLOCK_REALTIME, &startTime) < 0)
+    //  printErrorAndExit("starting timer for period", errno);
 
     while (1)
     {
-        //Read temperature data
-        //Get current time
-        if (clock_gettime(CLOCK_REALTIME, &currentTime) < 0)
-            printErrorAndExit("getting current time", errno);
+        //If not first report, sleep for periodInSecs seconds
+        if (!firstReport)
+            sleep(periodInSecs);
 
-        //If first report, don't check period or if period hasn't elapsed
-        if (!stopped && (firstReport || ((currentTime.tv_sec - startTime.tv_sec) >= periodInSecs)))
+        if (!stopped)
         {
             float currentTemperature = getTemperature(mraa_aio_read(temperatureSensor));
             printCurrentTime();
             printf("%.1f \n", currentTemperature);
             if (logFile != NULL)
+            {
                 fprintf(logFile, "%.1f \n", currentTemperature);
+                printf(" log successful\n");    
+            }
+                
 
             if (firstReport)
                 firstReport = 0;
@@ -192,7 +195,7 @@ int main(int argc, char **argv)
             {
                 if (buffer[i] == '\n') //Command completed - process it
                 {
-		    int isPeriod = 0;
+                    int isPeriod = 0;
                     buffer[i] = '\0'; //Setting null character at newline allows to 'end' string there
                     if (strcmp(buffer + startOfCommand, "OFF") == 0)
                         shutDown();
@@ -207,8 +210,8 @@ int main(int argc, char **argv)
                     else if (strncmp(buffer + startOfCommand, "PERIOD=", 7) == 0)
                     {
                         //Check if valid period
-                        long newPeriod = strtol(buffer + startOfCommand + 7, NULL, 10);
                         char *endingPtr;
+                        long newPeriod = strtol(buffer + startOfCommand + 7, &endingPtr, 10);
                         if ((errno == ERANGE && (newPeriod == LONG_MAX || newPeriod == LONG_MIN)) || (errno != 0 && newPeriod == 0))
                             printErrorAndExit("invalid number", errno);
                         else if (endingPtr == buffer + startOfCommand + 7)
@@ -218,14 +221,13 @@ int main(int argc, char **argv)
 
                         //Change period
                         periodInSecs = newPeriod;
-			if (logFile != NULL)
-			  fprintf(logFile, "PERIOD=%lu\n", newPeriod);
-			isPeriod = 1;
-
+                        if (logFile != NULL)
+                            fprintf(logFile, "PERIOD=%lu\n", newPeriod);
+                        isPeriod = 1;
                     }
-		    
-		    if (logFile != NULL && !isPeriod)
-		      fprintf(logFile, "%s\n", buffer + startOfCommand);
+
+                    if (logFile != NULL && !isPeriod)
+                        fprintf(logFile, "%s\n", buffer + startOfCommand);
                     startOfCommand = i + 1;
                 }
             }
@@ -236,7 +238,7 @@ int main(int argc, char **argv)
     if (logFile != NULL)
         if (fclose(logFile) != 0)
             printErrorAndExit("closing log file", errno);
-            
+
     //Deinitialize Sensors
     mraa_aio_close(temperatureSensor);
     mraa_gpio_close(button);
