@@ -60,7 +60,7 @@ float getTemperature (int rawTemp)
 {
   float step1  = 100000.0 * (1023.0/((float)rawTemp)-1.0);
   int step2  = 4275;
-  float tempInC = 1.0/(log(R/100000.0)/B+1/298.15)-273.15;
+  float tempInC = 1.0/(log(step1/100000.0)/step2+1/298.15)-273.15;
   if (scale == 'F')
     return (tempInC * 1.8) + 32;
   else
