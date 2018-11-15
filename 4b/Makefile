@@ -9,7 +9,8 @@ clean:
 	rm -rf lab4b-105032378.tar.gz lab4b
 
 check:	build
-	echo Checked
+	chmod u=rwx tests.sh 
+	./tests.sh
 
 dist: Makefile README lab4b.c
-	tar -czf lab4b-105032378.tar.gz lab4b.c README Makefile
+	tar -czf lab4b-105032378.tar.gz lab4b.c README Makefile tests.sh

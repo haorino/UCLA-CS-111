@@ -40,8 +40,12 @@ void printCurrentTime()
         char printTime[10];
         strftime(printTime, 9, "%H:%M:%S", localTimeNow);
         printf("%s ", printTime);
+        fflush(stdout); //Ensure that buffered output is all printed before prog sleeps
         if (logFile != NULL)
+        {
             fprintf(logFile, "%s ", printTime);
+            fflush(logFile);
+        }
     }
 }
 
@@ -112,7 +116,7 @@ int main(int argc, char **argv)
 
         case 'l':
             //Open log file for writing
-            logFile = fopen(optarg, "a");
+            logFile = fopen(optarg, "a+");
             if (logFile == NULL)
                 printErrorAndExit("opening log file", errno);
             break;
@@ -139,27 +143,26 @@ int main(int argc, char **argv)
     commandsPoll.events = POLLIN;
 
     //Initialize start time
-    //struct timespec startTime, currentTime;
-    //if (clock_gettime(CLOCK_REALTIME, &startTime) < 0)
-    //  printErrorAndExit("starting timer for period", errno);
+    time_t previousTime, currentTime;
+    time(&previousTime);
+    long long previousTimeSecs = previousTime;
 
     while (1)
     {
-        //If not first report, sleep for periodInSecs seconds
-        if (!firstReport)
-            sleep(periodInSecs);
-
-        if (!stopped)
+        time(&currentTime);
+        long long currentTimeSecs = currentTime;
+        if (!stopped && (firstReport || currentTimeSecs - previousTimeSecs >= periodInSecs))
         {
+            previousTimeSecs = currentTimeSecs;
             float currentTemperature = getTemperature(mraa_aio_read(temperatureSensor));
             printCurrentTime();
             printf("%.1f \n", currentTemperature);
+            fflush(stdout);
             if (logFile != NULL)
             {
                 fprintf(logFile, "%.1f \n", currentTemperature);
-                printf(" log successful\n");    
+                fflush(logFile);
             }
-                
 
             if (firstReport)
                 firstReport = 0;
@@ -191,6 +194,7 @@ int main(int argc, char **argv)
 
             //Process multiple commands possibly
             int i, startOfCommand;
+            startOfCommand = 0;
             for (i = 0; i < numBytes; i++)
             {
                 if (buffer[i] == '\n') //Command completed - process it
@@ -198,7 +202,14 @@ int main(int argc, char **argv)
                     int isPeriod = 0;
                     buffer[i] = '\0'; //Setting null character at newline allows to 'end' string there
                     if (strcmp(buffer + startOfCommand, "OFF") == 0)
+                    {
+                        if (logFile != NULL)
+                        {
+                            fprintf(logFile, "OFF\n");
+                            fflush(logFile);
+                        }
                         shutDown();
+                    }
                     else if (strcmp(buffer + startOfCommand, "STOP") == 0)
                         stopped = 1;
                     else if (strcmp(buffer + startOfCommand, "STOP") == 0)
@@ -222,12 +233,19 @@ int main(int argc, char **argv)
                         //Change period
                         periodInSecs = newPeriod;
                         if (logFile != NULL)
+                        {
                             fprintf(logFile, "PERIOD=%lu\n", newPeriod);
+                            fflush(logFile);
+                        }
                         isPeriod = 1;
                     }
 
                     if (logFile != NULL && !isPeriod)
+                    {
                         fprintf(logFile, "%s\n", buffer + startOfCommand);
+                        fflush(logFile);
+                    }
+
                     startOfCommand = i + 1;
                 }
             }
