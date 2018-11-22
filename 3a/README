@@ -1,0 +1,43 @@
+NAME: Will Fehrnstrom, Siddharth Joshi
+EMAIL: wfehrnstrom@gmail.com, sjoshi804@gmail.com 
+ID: 504969404, 105032378
+SLIPDAYS: 0
+
+FILE DESCRIPTIONS
+------------------
+
+1.) A Makefile to build our source files with clean, dist, and build options supported.
+2.) This README file, describing our project and including our information
+3.) lab3a.c - this file includes all of our implemented code for this project. 
+    we created many different helper functions to assist us in our programming efforts.
+    These are: 
+	- get_gmt_time: convert a time given in time since the epoch to a string 
+	  formatted in the way described for the inode modified, accessed, and created
+	  fields
+        - scan_bitmap: which takes in an area to scan individual bits of the bitmap,
+	  and converts it to an array
+	- offset_from_block: which takes in a block number and block size and returns the
+	  absolute offset of it in bytes
+	- fs_read_offset - read into the filesystem file at a specified offset and for a 
+	  certain length, storing what we get in a buffer
+	- populate_field_from_buf - given a pointer to a variable we want to fill up, the
+	  field's size and where to read it from in the buffer, populate it with data from
+	  the buffer
+	- Malloc - wrapped version of malloc() with descriptive error reporting
+    We also have some meatier functions that implement most of the functionality
+    These are:
+	- read_super_block: read all of the super block's attributes and store them in a
+	  struct
+	- read_group_block_descriptor: read all of the group block descriptor's attributes
+	  and store them in a struct
+	- inode_summary: iterate through the inodes and get a description for each of them
+	  parse them as directories if they are, and if they are not symbolic links, parse
+	  their indirect blocks, if any
+	- scan directory: print out directory inodes entries
+	
+
+LIMITATIONS
+-----------
+This project leverages information given by Alexandre in regards to the fact that there is
+only one block group.	
+
