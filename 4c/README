@@ -1,0 +1,13 @@
+NAME: Siddharth Joshi
+EMAIL: sjoshi804@gmail.com
+ID: 105032378
+
+Makefile:
+    Contains implementations for build - default, clean - cleans folder, check - runs smoke tests, dist - builds tarball for distribution
+lab4b.c:
+    Contains the code to log temperature values pulled from temperature sensor connected to beaglebone and processes commands from a pipe
+    as well as accepts OFF commands from a button
+README: Contains a description of the files included in the project
+
+tests.sh:
+    Contains smoke tests
