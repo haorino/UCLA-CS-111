@@ -13,3 +13,5 @@ lab4b
 *.dSYM
 *~
 *tar.gz
+lab4c_tcp
+lab4c_tls
