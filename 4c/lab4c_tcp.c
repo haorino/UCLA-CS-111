@@ -1,18 +1,26 @@
 #include <stdio.h>
+#include <assert.h>
+#include <errno.h>
+#include <poll.h>
+#include <time.h>
+#include <pthread.h>
+#include <mraa.h>
+#include <aio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <errno.h>
-#include <limits.h>
 #include <string.h>
-#include <sys/fcntl.h>
-#include <time.h>
-#include <poll.h>
-#include <mraa.h>
+#include <sys/time.h>
 #include <math.h>
+#include <limits.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <signal.h>
 
 //Global variables
 char scale = 'F';
 FILE *logFile = NULL;
+int socketfd;
 
 //Helper functions
 void printErrorAndExit(const char *errorMsg, int errorNum)
@@ -39,7 +47,7 @@ void printCurrentTime()
     {
         char printTime[10];
         strftime(printTime, 9, "%H:%M:%S", localTimeNow);
-        printf("%s ", printTime);
+        dprintf(socketfd, "%s ", printTime);
         fflush(stdout); //Ensure that buffered output is all printed before prog sleeps
         if (logFile != NULL)
         {
@@ -52,7 +60,7 @@ void printCurrentTime()
 void shutDown()
 {
     printCurrentTime();
-    printf("SHUTDOWN\n");
+    dprintf(socketfd, "SHUTDOWN\n");
     if (logFile != NULL)
     {
         fprintf(logFile, "SHUTDOWN\n");
@@ -82,20 +90,28 @@ int main(int argc, char **argv)
     int stopped = 0;
     char buffer[512];
 
-    //Initializing options
-    int option_index = 0;
+    //Connection parameters
+    char *id = "105032378";
+    char *hostName = "lever.cs.ucla.edu:18000";
+
+    //Checking if sufficient number of arguments
+    if (argc < 2)
+    {
+        fprintf(stderr, "Port number argument is mandatory\n");
+        printUsageAndExit(argv[0]);
+    }
+
+    int optionIndex = 0;
     static struct option long_options[] = {
+        {"id", required_argument, 0, 'i'},
+        {"host", required_argument, 0, 'h'},
         {"scale", required_argument, 0, 's'},
         {"period", required_argument, 0, 'p'},
-        {"log", required_argument, 0, 'l'}};
+        {"log", required_argument, 0, 'l'},
+        {0, 0, 0, 0}};
 
-    while ((argsLeft = getopt_long(argc, argv, "s:p:l:", long_options, &option_index)) != -1)
+    while ((argsLeft = getopt_long(argc, argv, "i:h:l:", long_options, &optionIndex)) != -1)
     {
-        //Check if any valid arguments are left
-        if (argsLeft == -1)
-            break;
-
-        //Identify which options were specified
         switch (argsLeft)
         {
         case 's':
@@ -121,9 +137,29 @@ int main(int argc, char **argv)
                 printErrorAndExit("opening log file", errno);
             break;
 
+        case 'i':
+            if (strlen(optarg) != 9)
+                fprintf(stderr, "Default ID will be used as provided ID is not exactly 9 characters long");
+            else
+                id = optarg;
+            break;
+
+        case 'h':
+            hostName = optarg;
+            break;
+
         default:
             printUsageAndExit(argv[0]);
         }
+    }
+
+    //Get and check port number argument
+    int portNum = atoi(argv[optind]);
+    //TODO fix
+    if (portNum == 0)
+    {
+        fprintf(stderr, "Invalid port number\n");
+        printUsageAndExit(argv[0]);
     }
 
     //Initialize hardware
@@ -132,14 +168,34 @@ int main(int argc, char **argv)
     temperatureSensor = mraa_aio_init(1);
     if (!temperatureSensor)
         printErrorAndExit("initializing temperature sensor", errno);
-    mraa_gpio_context button = mraa_gpio_init(60);
-    mraa_gpio_dir(button, MRAA_GPIO_IN);
 
-    if (!button)
-        printErrorAndExit("initializing button", errno);
+    //Set up connection to server
+    //Initialize socket
+    socketfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socketfd < 0)
+        printErrorAndExit("initializing socket file descriptor", errno);
+
+    //Initialize server config
+    struct hostent *server = gethostbyname(hostName);
+    if (server == NULL)
+        printErrorAndExit("getting host from name provided", errno);
+
+    //Connect to server
+    struct sockaddr_in serverAddress;
+    serverAddress.sin_port = htons(portNum);
+    serverAddress.sin_family = AF_INET;
+    memcpy((char *)&serverAddress.sin_addr.s_addr, (char *)server->h_addr, server->h_length);
+
+    if (connect(socketfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+        printErrorAndExit("connecting socket", errno);
+
+    //Log ID
+    dprintf(socketfd, "ID=%s\n", id);
+    if (logFile != NULL)
+        fprintf(logFile, "ID=%s\n", id);
 
     //Set up polling for commands
-    commandsPoll.fd = 0;
+    commandsPoll.fd = socketfd;
     commandsPoll.events = POLLIN;
 
     //Initialize start time
@@ -156,7 +212,7 @@ int main(int argc, char **argv)
             previousTimeSecs = currentTimeSecs;
             float currentTemperature = getTemperature(mraa_aio_read(temperatureSensor));
             printCurrentTime();
-            printf("%.1f \n", currentTemperature);
+            dprintf(socketfd, "%.1f \n", currentTemperature);
             fflush(stdout);
             if (logFile != NULL)
             {
@@ -167,11 +223,6 @@ int main(int argc, char **argv)
             if (firstReport)
                 firstReport = 0;
         }
-
-        //Check for button presses
-        int buttonPressed = mraa_gpio_read(button);
-        if (buttonPressed)
-            shutDown();
 
         //Check for commands and if new commands have been issued -> bring changes into effect
         int pendingCommands = poll(&commandsPoll, 2, 0);
@@ -259,7 +310,6 @@ int main(int argc, char **argv)
 
     //Deinitialize Sensors
     mraa_aio_close(temperatureSensor);
-    mraa_gpio_close(button);
 
     return 0;
 }

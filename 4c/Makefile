@@ -2,15 +2,16 @@
 #105032378
 .SILENT:
 
-build: lab4b.c 
-	gcc -Wall -Wextra -g -lm -lmraa lab4b.c -o lab4b
+build: tcp tls 
+
+tcp: 
+	gcc -Wall -Wextra -g -lm -lmraa lab4c_tcp.c -o lab4c_tcp
+
+tls:
+	gcc -Wall -Wextra -g -lm -lmraa lab4c_tls.c -o lab4c_tls
 
 clean: 
-	rm -rf lab4b-105032378.tar.gz lab4b
+	rm -rf lab4c-105032378.tar.gz lab4c *~ *#
 
-check:	build
-	chmod u=rwx tests.sh 
-	./tests.sh
-
-dist: Makefile README lab4b.c
-	tar -czf lab4b-105032378.tar.gz lab4b.c README Makefile tests.sh
+dist: Makefile README lab4c*.c
+	tar -czf lab4c-105032378.tar.gz lab4c*.c README Makefile 
