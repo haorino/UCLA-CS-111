@@ -38,19 +38,20 @@ void printUsageAndExit(const char *argv0)
 
 void shutDown()
 {
-    char printTime[10];
-    time_t now;
-    time(&now);
-    struct tm *localTimeNow = localtime(&now);
-    if (!localTimeNow)
-        printErrorAndExit("converting to local time", errno);
-    else
-        strftime(printTime, 9, "%H:%M:%S", localTimeNow);
+  char printTime[10];
+  time_t now;
+  time(&now);
+  struct tm *localTimeNow = localtime(&now);
+  if (!localTimeNow)
+    printErrorAndExit("converting to local time", errno);
+  else
+    strftime(printTime, 9, "%H:%M:%S", localTimeNow);
 
-    dprintf(socketfd, "%s SHUTDOWN\n", printTime);
+  dprintf(socketfd, "%s SHUTDOWN\n", printTime);
     if (logFile != NULL)
 
-        fprintf(logFile, "%s SHUTDOWN\n", printTime);
+      fprintf(logFile, "%s SHUTDOWN\n", printTime);
+
 
     exit(0);
 }
@@ -75,7 +76,7 @@ int main(int argc, char **argv)
     int firstReport = 1;
     int stopped = 0;
     char buffer[512];
-
+    
     //Connection parameters
     char *id = "105032378";
     char *hostName = "lever.cs.ucla.edu";
@@ -190,27 +191,27 @@ int main(int argc, char **argv)
     while (1)
     {
         currentTime = time(NULL);
-        const long long previousTimeSecs = previousTime;
-        const long long currentTimeSecs = currentTime;
+	const long long previousTimeSecs = previousTime;
+	const long long currentTimeSecs = currentTime;
         if (!stopped && (firstReport || currentTimeSecs - previousTimeSecs >= periodInSecs))
         {
-            previousTime = time(NULL);
+	    previousTime = time(NULL);
             float currentTemperature = getTemperature(mraa_aio_read(temperatureSensor));
 
-            //Get local time and convert to string format
-            char printTime[10];
-            time_t now;
-            time(&now);
-            struct tm *localTimeNow = localtime(&now);
-            if (!localTimeNow)
-                printErrorAndExit("converting to local time", errno);
-            else
-                strftime(printTime, 9, "%H:%M:%S", localTimeNow);
-
+	    //Get local time and convert to string format
+	    char printTime[10];
+	    time_t now;
+	    time(&now);
+	    struct tm *localTimeNow = localtime(&now);
+	    if (!localTimeNow)
+	      printErrorAndExit("converting to local time", errno);
+	    else
+	      strftime(printTime, 9, "%H:%M:%S", localTimeNow);
+	    
             dprintf(socketfd, "%s %.1f\n", printTime, currentTemperature);
             if (logFile != NULL)
             {
-                fprintf(logFile, "%s %.1f\n", printTime, currentTemperature);
+	        fprintf(logFile, "%s %.1f\n", printTime, currentTemperature);
                 fflush(logFile);
             }
 
