@@ -3,11 +3,15 @@ EMAIL: sjoshi804@gmail.com
 ID: 105032378
 
 Makefile:
-    Contains implementations for build - default, clean - cleans folder, check - runs smoke tests, dist - builds tarball for distribution
-lab4b.c:
-    Contains the code to log temperature values pulled from temperature sensor connected to beaglebone and processes commands from a pipe
-    as well as accepts OFF commands from a button
-README: Contains a description of the files included in the project
+    Contains implementations for build - default, clean - cleans folder, dist - builds tarball for distribution
 
-tests.sh:
-    Contains smoke tests
+C source files:
+    Contain the code to log temperature values pulled from temperature sensor connected to beaglebone and processes commands from a server
+
+lab4c_tls.c:
+    Achieves the aforementioned functionality with SSL encryption
+
+lab4c_tcp.c:
+    Achieves the aforementioned functinality without any encryption using a regular socket
+    
+README: Contains a description of the files included in the project

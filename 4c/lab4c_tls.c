@@ -16,16 +16,24 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <signal.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
 
 //Global variables
 char scale = 'F';
 FILE *logFile = NULL;
 int socketfd;
+SSL_CTX *ssl_context;
+SSL *ssl;
 
 //Helper functions
 void printErrorAndExit(const char *errorMsg, int errorNum)
 {
-    fprintf(stderr, "Error %s \nError %d: %s \n", errorMsg, errorNum, strerror(errorNum));
+    if (errorNum == 0)
+        fprintf(stderr, "Error %s \n", errorMsg);
+    else
+        fprintf(stderr, "Error %s \nError %d: %s \n", errorMsg, errorNum, strerror(errorNum));
     exit(1);
 }
 
@@ -38,20 +46,24 @@ void printUsageAndExit(const char *argv0)
 
 void shutDown()
 {
-  char printTime[10];
-  time_t now;
-  time(&now);
-  struct tm *localTimeNow = localtime(&now);
-  if (!localTimeNow)
-    printErrorAndExit("converting to local time", errno);
-  else
-    strftime(printTime, 9, "%H:%M:%S", localTimeNow);
+    char printTime[10];
+    time_t now;
+    time(&now);
+    struct tm *localTimeNow = localtime(&now);
+    if (!localTimeNow)
+        printErrorAndExit("converting to local time", errno);
+    else
+        strftime(printTime, 9, "%H:%M:%S", localTimeNow);
+    char smallBuffer[64];
+    sprintf(smallBuffer, "%s SHUTDOWN\n", printTime);
 
-  dprintf(socketfd, "%s SHUTDOWN\n", printTime);
+    //Write to socket
+    if (SSL_write(ssl, smallBuffer, strlen(smallBuffer)) < 0)
+        printErrorAndExit("writing to socket", errno);
+
     if (logFile != NULL)
 
-      fprintf(logFile, "%s SHUTDOWN\n", printTime);
-
+        fprintf(logFile, "%s SHUTDOWN\n", printTime);
 
     exit(0);
 }
@@ -76,7 +88,7 @@ int main(int argc, char **argv)
     int firstReport = 1;
     int stopped = 0;
     char buffer[512];
-    
+
     //Connection parameters
     char *id = "105032378";
     char *hostName = "lever.cs.ucla.edu";
@@ -176,8 +188,36 @@ int main(int argc, char **argv)
     if (connect(socketfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
         printErrorAndExit("connecting socket", errno);
 
+    //Set up SSL encryption
+
+    //Initialize library
+    if (SSL_library_init() < 0)
+        printErrorAndExit("initializing SSL library", errno);
+
+    OpenSSL_add_all_algorithms();
+
+    //Set up SSL context
+    ssl_context = SSL_CTX_new(TLSv1_client_method());
+    if (ssl_context == NULL)
+        printErrorAndExit("setting up ssl context", errno);
+
+    //Set file descriptor for SSL
+    ssl = SSL_new(ssl_context);
+    if (SSL_set_fd(ssl, socketfd) == 0)
+        printErrorAndExit("setting file descriptor for SSL", errno);
+
+    //Connect
+    if (SSL_connect(ssl) != 1)
+        printErrorAndExit("connecting SSL", errno);
+
     //Log ID
-    dprintf(socketfd, "ID=%s\n", id);
+    char smallBuffer[64];
+    sprintf(smallBuffer, "ID=%s\n", id);
+
+    //Write to socket
+    if (SSL_write(ssl, smallBuffer, strlen(smallBuffer)) < 0)
+        printErrorAndExit("writing to socket", errno);
+
     if (logFile != NULL)
         fprintf(logFile, "ID=%s\n", id);
 
@@ -191,27 +231,32 @@ int main(int argc, char **argv)
     while (1)
     {
         currentTime = time(NULL);
-	const long long previousTimeSecs = previousTime;
-	const long long currentTimeSecs = currentTime;
+        const long long previousTimeSecs = previousTime;
+        const long long currentTimeSecs = currentTime;
         if (!stopped && (firstReport || currentTimeSecs - previousTimeSecs >= periodInSecs))
         {
-	    previousTime = time(NULL);
+            previousTime = time(NULL);
             float currentTemperature = getTemperature(mraa_aio_read(temperatureSensor));
 
-	    //Get local time and convert to string format
-	    char printTime[10];
-	    time_t now;
-	    time(&now);
-	    struct tm *localTimeNow = localtime(&now);
-	    if (!localTimeNow)
-	      printErrorAndExit("converting to local time", errno);
-	    else
-	      strftime(printTime, 9, "%H:%M:%S", localTimeNow);
-	    
-            dprintf(socketfd, "%s %.1f\n", printTime, currentTemperature);
+            //Get local time and convert to string format
+            char printTime[10];
+            time_t now;
+            time(&now);
+            struct tm *localTimeNow = localtime(&now);
+            if (!localTimeNow)
+                printErrorAndExit("converting to local time", errno);
+            else
+                strftime(printTime, 9, "%H:%M:%S", localTimeNow);
+
+            sprintf(smallBuffer, "%s %.1f\n", printTime, currentTemperature);
+
+            //Write to socket
+            if (SSL_write(ssl, smallBuffer, strlen(smallBuffer)) < 0)
+                printErrorAndExit("writing to socket", errno);
+
             if (logFile != NULL)
             {
-	        fprintf(logFile, "%s %.1f\n", printTime, currentTemperature);
+                fprintf(logFile, "%s %.1f\n", printTime, currentTemperature);
                 fflush(logFile);
             }
 
@@ -231,10 +276,10 @@ int main(int argc, char **argv)
         //Process any input
         if (commandsPoll.revents & POLLIN)
         {
-            //Read from STDIN
-            int numBytes = read(socketfd, buffer, 512);
+            //Read from SSL Socket
+            int numBytes = SSL_read(ssl, buffer, 512);
             if (numBytes < 0)
-                printErrorAndExit("reading commands from stdin", errno);
+                printErrorAndExit("reading commands from ssl socket", errno);
             else if (numBytes == 0)
                 continue;
 
