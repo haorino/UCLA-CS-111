@@ -34,7 +34,7 @@ void printErrorAndExit(const char *errorMsg, int errorNum)
         fprintf(stderr, "Error %s \n", errorMsg);
     else
         fprintf(stderr, "Error %s \nError %d: %s \n", errorMsg, errorNum, strerror(errorNum));
-    exit(1);
+    exit(2);
 }
 
 void printUsageAndExit(const char *argv0)
